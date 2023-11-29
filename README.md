@@ -25,3 +25,5 @@ https://arxiv.org/pdf/2307.14860.pdf
 **QuEST:**
 https://github.com/QuEST-Kit/QuEST/tree/master
 
+**Multi-shot:**
+https://arxiv.org/pdf/2308.03399.pdf
