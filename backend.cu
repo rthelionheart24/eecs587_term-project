@@ -4,10 +4,9 @@
 #include "include/backend.h"
 #include "include/data.h"
 
-#define THREADS_PER_BLOCK 1024
-
-BatchedGPUTask::BatchedGPUTask(QCircuit *qc, unsigned int num_shots) {
-  this->circuit = qc;
+template <typename D, typename P>
+BatchedGPUTask::BatchedGPUTask(Task<D, P> *task, unsigned int num_shots) {
+  this->task = task;
   this->num_shots = num_shots;
 
   int deviceCount;
@@ -47,116 +46,120 @@ BatchedGPUTask::~BatchedGPUTask() {
   }
 }
 
- __global__ void run(QCircuit *circuit) {
-  return;
-}
+void prepare(){
+  printf("Preparing memory space\n");
 
- void BatchedGPUTask::runWrapper() {
+  gridDim.x = 0;
 
-  printf("Running Simulation task\n");
+  // =================================================================================================================
+  // Allocate memory on device
 
-  float *d_qubits;
-  float *d_gates;
-  float *d_bits;
-
-  // Allocate memory on GPU
   cudaError_t status;
 
-  status =
-      cudaMalloc((void **)&d_qubits, sizeof(float) * this->circuit->num_qubits);
-
+  // printf("Start allocating for params at location: %f\n", d_params);
+  status = cudaMalloc((void **)&this->params_ptr,
+                      sizeof(P) * this->task->params.size());
   if (status != cudaSuccess) {
-    printf("Error allocating memory for qubits on GPU - %s\n",
+    printf("Error allocating memory for params - %s\n",
            cudaGetErrorString(status));
     exit(EXIT_FAILURE);
   } else {
-    printf("Allocated memory for qubits on GPU\n");
+    printf("Allocated memory for params\n");
   }
 
-  status =
-      cudaMalloc((void **)&d_bits, sizeof(float) * this->circuit->num_bits);
-
-  if (status != cudaSuccess) {
-    printf("Error allocating memory for classical bits on GPU - %s\n",
-           cudaGetErrorString(status));
-    exit(EXIT_FAILURE);
-  } else {
-    printf("Allocated memory for classical bits on GPU\n");
-  }
-
-  status =
-      cudaMalloc((void **)&d_gates, sizeof(float) * this->circuit->num_gates);
-
-  if (status != cudaSuccess) {
-    printf("Error allocating memory for gates on GPU - %s\n",
-           cudaGetErrorString(status));
-    exit(EXIT_FAILURE);
-  } else {
-    printf("Allocated memory for gates on GPU\n");
-  }
-
-  // Copy circuit to GPU
-  status = cudaMemcpy(d_qubits, this->circuit->qubits.data(),
-                      sizeof(float) * this->circuit->num_qubits,
-                      cudaMemcpyHostToDevice);
-  status = cudaMemcpy(d_bits, this->circuit->bits.data(),
-                      sizeof(float) * this->circuit->num_bits,
-                      cudaMemcpyHostToDevice);
-  status = cudaMemcpy(d_gates, this->circuit->gates.data(),
-                      sizeof(float) * this->circuit->num_gates,
-                      cudaMemcpyHostToDevice);
-
-  this->qubits_start_idx = 0;
-  this->bits_start_idx = this->circuit->num_qubits;
-  this->gates_start_idx = this->circuit->num_qubits + this->circuit->num_bits;
-
-  if (status != cudaSuccess) {
-    printf("Error copying circuit to GPU - %s\n", cudaGetErrorString(status));
-    exit(EXIT_FAILURE);
-  } else {
-    printf("Copied circuit to GPU\n");
-  }
-
-  // Define grid and block dimensions
-  dim3 gridDim;
-  gridDim.x = 1;
-  unsigned int size_circuit = this->circuit->num_qubits +
-                              this->circuit->num_bits +
-                              this->circuit->num_gates;
-
-  gridDim.x = size_circuit / THREADS_PER_BLOCK;
-
-  if (size_circuit % THREADS_PER_BLOCK != 0) {
+  gridDim.x += this->task->params.size() / THREADS_PER_BLOCK;
+  if (this->task->params.size() % THREADS_PER_BLOCK != 0) {
     gridDim.x++;
   }
 
-  printf("Grid dimensions: %d\n", gridDim.x);
-  printf("Block dimensions: %d\n", THREADS_PER_BLOCK);
 
-  // Run circuit on GPU
+  //// dataOriginal = paramsOriginal + gridDim.x * THREADS_PER_BLOCK;
+  //// printf("Start allocating memory for data at location: %f\n", dataOriginal);
 
-  run<<<gridDim, THREADS_PER_BLOCK>>>(this->circuit);
-
-  cudaDeviceSynchronize();
-
-  // Copy results back to CPU
-  status = cudaMemcpy(this->circuit->qubits.data(), d_qubits,
-                      sizeof(float) * this->circuit->num_qubits,
-                      cudaMemcpyDeviceToHost);
-  status = cudaMemcpy(this->circuit->bits.data(), d_bits, sizeof(float) * this->circuit->num_bits,
-                      cudaMemcpyDeviceToHost);
-  status = cudaMemcpy(this->circuit->gates.data(), d_gates,
-                      sizeof(float) * this->circuit->num_gates , cudaMemcpyDeviceToHost);
-
+  status = cudaMalloc((void **)&data_ptr,
+                      sizeof(T) * this->task->data.size());
   if (status != cudaSuccess) {
-    printf("Error copying results back to CPU - %s\n",
+    printf("Error allocating memory for data - %s\n",
            cudaGetErrorString(status));
     exit(EXIT_FAILURE);
   } else {
-    printf("Copied results back to CPU\n");
+    printf("Allocated memory for data\n");
   }
 
-  cudaFree(d_qubits);
-  cudaFree(d_bits);
-  cudaFree(d_gates);
+  gridDim.x += this->task->data.size() / THREADS_PER_BLOCK;
+  if (this->task->data.size() % THREADS_PER_BLOCK != 0) {
+    gridDim.x++;
+  }
+
+  printf("Grid dim: %d\n", gridDim.x);
+  printf("Block dim: %d\n", THREADS_PER_BLOCK);
+
+  this->data_idx = this->numBlocksParams * THREADS_PER_BLOCK;
+
+
+  // =================================================================================================================
+  // Copy data to device
+
+  status =
+      cudaMemcpy(d_params, this->task->params,
+                 sizeof(P) * this->task->data.size(), cudaMemcpyHostToDevice);
+  if (status != cudaSuccess) {
+    printf("Error copying params to device - %s\n", cudaGetErrorString(status));
+    exit(EXIT_FAILURE);
+  } else {
+    printf("Copied params of size %d to device\n", this->task->params.size());
+  }
+
+  status =
+      cudaMemcpy(d_data, this->task->data,
+                 sizeof(T) * this->task->params.size(), cudaMemcpyHostToDevice);
+  if (status != cudaSuccess) {
+    printf("Error copying data to device - %s\n", cudaGetErrorString(status));
+    exit(EXIT_FAILURE);
+  } else {
+    printf("Copied data of length %d to device\n", this->task->data.size());
+  }
+
+
+}
+
+
+__device__ transform(){
+
+}
+
+
+template <typename D, typename P>
+ __global__ void run(BatchedGPUTask<typename D, typename P> *task) {
+  
+   printf("Running task\n");
+
+  int tid = threadIdx.x + blockIdx.x * blockDim.x;
+
+  // tid falls into the parameter section
+  if (tid < this->data_idx) {
+    return;
+  }
+
+  // tid out of bounds
+  if (tid > task->data_idx + this->statesCounter) {
+    return;
+  }
+
+  // tid falls into the data section
+  transform()
+
+
+}
+template <typename D, typename P>
+ void BatchedGPUTask::runWrapper() {
+
+  printf("Running task wrapper\n");
+
+  prepare();
+
+
+  run<<<gridDim, THREADS_PER_BLOCK>>>(this);
+
+ 
  }

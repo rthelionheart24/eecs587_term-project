@@ -1,5 +1,6 @@
 
 #include <cstddef>
+#include <cstdint>
 #include <cstdlib>
 #include <math.h>
 #include <random>
@@ -29,14 +30,14 @@
 
 enum struct Parameter { ZERO, ONE, ID, RAND };
 
-__managed__ int RAND_POSSIBLE_OUTCOME = 2;
+__managed__ int RAND_POSSIBLE_OUTCOME = 4;
 __managed__ int NUM_PARAMETERS = 3;
 __managed__ int NUM_RANDOM_PARAMETERS = 2;
-__managed__ int NUM_SHOTS = 4;
+__managed__ int NUM_SHOTS = 2;
 
 __managed__ uint64_t STATE_COUNTER = 1;
 
-__managed__ float DISTRIBUTION[2];
+__managed__ float DISTRIBUTION[4];
 
 __managed__ Parameter **params;
 
@@ -89,25 +90,23 @@ __global__ void run(State *states, uint64_t num_shots, int param_idx) {
       }
     }
 
-    STATE_COUNTER *= RAND_POSSIBLE_OUTCOME;
-
     __syncthreads();
 
-    if (threadIdx.x < STATE_COUNTER) {
+    if (threadIdx.x < STATE_COUNTER * RAND_POSSIBLE_OUTCOME) {
       printf("DEVICE: Setting state %u in block %u to random value: %f\n",
              threadIdx.x, blockIdx.x, per_shot_data[threadIdx.x].a);
     }
   }
   __syncthreads();
 
-  states[threadIdx.x] = per_shot_data[threadIdx.x];
+  // HACK: This is a hack to make sure that the states are not overwritten
+  states[global_idx] = per_shot_data[threadIdx.x];
 
   __syncthreads();
 
   printf("DEVICE: shot: %u, state, %u: value: %f\n", blockIdx.x, threadIdx.x,
          states[threadIdx.x].a);
 }
-
 
 int main(int argc, char **argv) {
 
@@ -178,13 +177,13 @@ int main(int argc, char **argv) {
   size_t MAXIMUM =
       static_cast<size_t>(pow(RAND_POSSIBLE_OUTCOME, NUM_RANDOM_PARAMETERS));
 
-      //// dataOriginal = paramsOriginal + gridDim.x * THREADS_PER_BLOCK;
-      //// printf("Start allocating memory for data at location: %f\n",
-      /// dataOriginal);
+  //// dataOriginal = paramsOriginal + gridDim.x * THREADS_PER_BLOCK;
+  //// printf("Start allocating memory for data at location: %f\n",
+  /// dataOriginal);
 
-      // HACK Allocation
-      status =
-          cudaMalloc((void **)&states_ptr, sizeof(State) * task.num_shots * MAXIMUM);
+  // HACK Allocation
+  status = cudaMalloc((void **)&states_ptr,
+                      sizeof(State) * task.num_shots * MAXIMUM);
   if (status != cudaSuccess) {
     printf("Error allocating memory for initial states - %s\n",
            cudaGetErrorString(status));
@@ -212,12 +211,13 @@ int main(int argc, char **argv) {
   State d_states[task.num_shots][MAXIMUM];
 
   for (int i = 0; i < task.num_shots; i++) {
-    for (int j = 0; j < RAND_POSSIBLE_OUTCOME * NUM_RANDOM_PARAMETERS; j++) {
+    for (int j = 0; j < MAXIMUM; j++) {
       d_states[i][j].a = 0.0;
     }
   }
 
-  status = cudaMemcpy((void *)states_ptr, &d_states, MAXIMUM * sizeof(State),
+  status = cudaMemcpy((void *)states_ptr, &d_states,
+                      MAXIMUM * task.num_shots * sizeof(State),
                       cudaMemcpyHostToDevice);
   if (status != cudaSuccess) {
     printf("Error copying initial states to device - %s\n",
@@ -232,77 +232,48 @@ int main(int argc, char **argv) {
 
   printf("Running task\n");
 
-  State *results;
-
   for (uint64_t i = 0; i < NUM_PARAMETERS; i++) {
 
-    run<<<task.num_shots,
-          static_cast<int>(pow(RAND_POSSIBLE_OUTCOME, NUM_RANDOM_PARAMETERS)),
-          sizeof(State) * STATE_COUNTER>>>(states_ptr, task.num_shots, i);
+    run<<<task.num_shots, MAXIMUM, sizeof(State) * MAXIMUM>>>(
+        states_ptr, task.num_shots, i);
 
     cudaDeviceSynchronize();
 
-    results = (State *)malloc(sizeof(State) * task.num_shots * STATE_COUNTER);
-
-    cudaMemcpy((void *)results, (void *)states_ptr,
-               sizeof(State) * task.num_shots * STATE_COUNTER,
-               cudaMemcpyDeviceToHost);
-
-    for (int e = 0; e < task.num_shots; e++) {
-      for (int i = 0; i < STATE_COUNTER; i++) {
-        printf("HOST: Shot %d, state %d: %f\n", e, i,
-               results[STATE_COUNTER * e + i].a);
-      }
+    if (params[0][i] == Parameter::RAND) {
+      STATE_COUNTER *= RAND_POSSIBLE_OUTCOME;
     }
 
-    free(results);
-
     printf("Finish executing parameter %lu\n", i);
-
-    // State temp[task.num_shots * STATE_COUNTER];
-    // cudaMemcpy((void *)&temp, (void *)states_ptr,
-    //            sizeof(State) * task.num_shots * STATE_COUNTER,
-    //            cudaMemcpyDeviceToHost);
-
-    // for (int i = 0; i < task.num_shots*STATE_COUNTER; i++) {
-    //   size_t state_idx = i / task.num_shots;
-    //   size_t shot_idx = i % task.num_shots;
-    //   printf("Shot %lu, state %lu: %f\n", shot_idx, state_idx, temp[i].a);
-    // }
   }
 
   printf("Start reducing\n");
 
-  // reduce<<<task.num_shots, STATE_COUNTER, sizeof(State) * STATE_COUNTER>>>(
-  // states_ptr, task.num_shots);
-
   cudaDeviceSynchronize();
 
-  printf("STATE_COUNTER: %lu\n", STATE_COUNTER);
+  cudaMemcpy((void *)d_states, (void *)states_ptr,
+             sizeof(State) * MAXIMUM * task.num_shots, cudaMemcpyDeviceToHost);
 
-  cudaMemcpy((void *)results, (void *)states_ptr,
-             sizeof(State) * STATE_COUNTER * task.num_shots,
-             cudaMemcpyDeviceToHost);
+  std::vector<std::unordered_map<float, uint64_t>> stats(task.num_shots);
 
-  // for (int e = 0; e < task.num_shots; e++){
-  //   for (int i = 0; i < STATE_COUNTER; i++){
-  //     printf("Value: %f, count: %d\n", states_ptr[e * STATE_COUNTER + i].a,
-  //     counts[i]);
-  //   }
-  // }
+  for (int e = 0; e < task.num_shots; e++) {
+    for (int i = 0; i < MAXIMUM; i++) {
+      printf("HOST: Shot %d, state %d: %f\n", e, i, d_states[e][i].a);
+      stats[e][d_states[e][i].a]++;
+    }
+  }
 
   // =================================================================================================================
   // Printing stats
 
-  // for (int i = 0; i < task.num_shots; i++) {
-  //   printf("***********************************************\n");
-  //   printf("Statistics for shot %d\n", i);
-  //   for (auto &pair : stats[i]) {
-  //     printf("Value: %f, frequency: %f\n", pair.first,
-  //            (float)pair.second / STATE_COUNTER);
-  //   }
-  //   printf("***********************************************\n");
-  // }
+  for (int i = 0; i < task.num_shots; i++) {
+    printf("***********************************************\n");
+    printf("Statistics for shot %d\n", i);
+    for (auto &pair : stats[i]) {
+      printf("Value: %f, frequency: %f\n", pair.first,
+             (float)pair.second / STATE_COUNTER);
+    }
+    printf("***********************************************\n");
+  }
 
   // =================================================================================================================
   // Benchmarking
