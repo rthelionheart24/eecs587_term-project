@@ -211,7 +211,7 @@ int main(int argc, char **argv) {
 
     for (int j = 0; j < task.params[0].size(); j++) {
       params[i][j] = task.params[i][j];
-      printf("Shot %d, parameter %d: %d\n", i, j, params[i][j]);
+      // printf("Shot %d, parameter %d: %d\n", i, j, params[i][j]);
     }
   }
 
