@@ -1,7 +1,5 @@
 
-#include <cstddef>
-#include <cstdint>
-#include <cstdlib>
+#include <asm-generic/errno.h>
 #include <math.h>
 #include <random>
 #include <stdint.h>
@@ -10,58 +8,34 @@
 #include <unordered_map>
 #include <vector>
 
-#include <curand.h>
-#include <curand_kernel.h>
-
 #include "device_launch_parameters.h"
 #include <cuda.h>
 #include <cuda_runtime_api.h>
-#include <thrust/device_vector.h>
-#include <thrust/execution_policy.h>
-#include <thrust/reduce.h>
-#include <thrust/sort.h>
-#include <thrust/unique.h>
+
+#include "include/data.h"
 
 // ! Need to change the way we parallelize the problem
 // ! Approach 1: Different experiments of the same states are put together
 // ? Approach 2: One block per experiment
 
-#define THREADS_PER_BLOCK 1024
-
-enum struct Parameter { ZERO, ONE, ID, RAND };
-
-__managed__ int RAND_POSSIBLE_OUTCOME = 4;
-__managed__ int NUM_PARAMETERS = 3;
-__managed__ int NUM_RANDOM_PARAMETERS = 2;
-__managed__ int NUM_SHOTS = 2;
-
 __managed__ uint64_t STATE_COUNTER = 1;
 
 __managed__ float DISTRIBUTION[4];
+__managed__ int RAND_POSSIBLE_OUTCOME = 4;
+__managed__ int NUM_PARAMETERS = 3;
+__managed__ int NUM_RANDOM_PARAMETERS = 1;
+__managed__ int NUM_SHOTS = 2;
 
 __managed__ Parameter **params;
-
-typedef struct State {
-  float a;
-} State;
-
-typedef struct BatchedTask {
-  std::vector<std::vector<Parameter>> params;
-  std::vector<State> states;
-  uint64_t num_shots;
-
-} BatchedTask;
 
 __global__ void run(State *states, uint64_t num_shots, int param_idx) {
 
   extern __shared__ State per_shot_data[];
 
   uint64_t global_idx = blockIdx.x * blockDim.x + threadIdx.x;
-  uint64_t batch_idx = global_idx / num_shots;
-  uint64_t shot_idx = global_idx % num_shots;
 
   // Transformation
-  if (params[shot_idx][param_idx] == Parameter::ZERO) {
+  if (params[blockIdx.x][param_idx] == Parameter::X_OP) {
 
     if (threadIdx.x < STATE_COUNTER) {
       per_shot_data[threadIdx.x].a = 0.0;
@@ -71,7 +45,7 @@ __global__ void run(State *states, uint64_t num_shots, int param_idx) {
 
     __syncthreads();
 
-  } else if (params[shot_idx][param_idx] == Parameter::ONE) {
+  } else if (params[blockIdx.x][param_idx] == Parameter::Y_OP) {
 
     if (threadIdx.x < STATE_COUNTER) {
       per_shot_data[threadIdx.x].a = 1.0;
@@ -81,7 +55,7 @@ __global__ void run(State *states, uint64_t num_shots, int param_idx) {
 
     __syncthreads();
 
-  } else if (params[shot_idx][param_idx] == Parameter::RAND) {
+  } else if (params[blockIdx.x][param_idx] == Parameter::RAND_OP) {
 
     if (threadIdx.x < STATE_COUNTER) {
 
@@ -96,7 +70,11 @@ __global__ void run(State *states, uint64_t num_shots, int param_idx) {
       printf("DEVICE: Setting state %u in block %u to random value: %f\n",
              threadIdx.x, blockIdx.x, per_shot_data[threadIdx.x].a);
     }
-  }
+  } else if (params[blockIdx.x][param_idx] == Parameter::ID) {
+    if (threadIdx.x < STATE_COUNTER) {
+      printf("DEVICE: state %u in block %u remains identical\n", threadIdx.x, blockIdx.x);
+    }
+    }
   __syncthreads();
 
   // HACK: This is a hack to make sure that the states are not overwritten
@@ -121,9 +99,8 @@ int main(int argc, char **argv) {
   BatchedTask task;
   task.num_shots = NUM_SHOTS;
 
-  for (int i = 0; i < NUM_SHOTS; i++) {
-    task.params.push_back({Parameter::ONE, Parameter::RAND, Parameter::RAND});
-  }
+  task.params.push_back({Parameter::Y_OP,  Parameter::RAND_OP, Parameter::Y_OP});
+  task.params.push_back({ Parameter::RAND_OP, Parameter::X_OP, Parameter::Y_OP});
 
   for (int i = 0; i < NUM_SHOTS; i++) {
     task.states.push_back({0.0});
@@ -173,13 +150,18 @@ int main(int argc, char **argv) {
   cudaDeviceReset();
 
   cudaError_t status;
+  cudaEvent_t start, stop;
+  float elapsedTime = 0.0f;
+
+  cudaEventCreate(&start);
+  cudaEventCreate(&stop);
+
+  // ! Start the timer
+  cudaEventRecord(start);
 
   size_t MAXIMUM =
       static_cast<size_t>(pow(RAND_POSSIBLE_OUTCOME, NUM_RANDOM_PARAMETERS));
 
-  //// dataOriginal = paramsOriginal + gridDim.x * THREADS_PER_BLOCK;
-  //// printf("Start allocating memory for data at location: %f\n",
-  /// dataOriginal);
 
   // HACK Allocation
   status = cudaMalloc((void **)&states_ptr,
@@ -232,18 +214,105 @@ int main(int argc, char **argv) {
 
   printf("Running task\n");
 
-  for (uint64_t i = 0; i < NUM_PARAMETERS; i++) {
+  int iter_param = 0;
+
+  while (iter_param < NUM_PARAMETERS) {
+    bool all_rand_op = true;
+    bool has_rand_op = false;
+
+    std::vector<int> rand_op_idx;
+    std::vector<int> non_rand_idx;
+
+    for (int e = 0; e < task.num_shots; e++) {
+      for (int p = 0; p < NUM_PARAMETERS; p++) {
+        printf("Shot %d, parameter %d: %d\n", e, p, params[e][p]);
+      }
+    }
+
+    for (int e = 0; e < task.num_shots; e++) {
+      if (params[e][iter_param] != Parameter::RAND_OP) {
+        all_rand_op = false;
+        break;
+      }
+    }
+
+    for (int e = 0; e < task.num_shots; e++) {
+
+      if (params[e][iter_param] == Parameter::RAND_OP) {
+        rand_op_idx.push_back(e);
+        has_rand_op = true;
+        printf("Random operation found at index %d\n", e);
+      } else {
+        non_rand_idx.push_back(e);
+        printf("Non-random operation found at index %d\n", e);
+      }
+    }
+
+
+    // HACK: To add padding ID gates to all shots that encounter a random
+    // operation
+    if (has_rand_op && !all_rand_op) {
+
+      for (int s = 0; s < rand_op_idx.size(); s++) {
+        int idx = rand_op_idx[s];
+        Parameter *new_params;
+        cudaMallocManaged((void **)&new_params,
+                          sizeof(Parameter) * (NUM_PARAMETERS + 1));
+
+        for (int i = 0; i < NUM_PARAMETERS+1; ++i) {
+          if (i < iter_param) {
+            // Copy elements before the index
+            new_params[i]  = params[idx][i];
+          } else if (i > iter_param) {
+            // Shift elements after the index
+            new_params[i] = params[idx][i - 1];
+          }
+        }
+
+        new_params[iter_param] = Parameter::ID;
+        cudaFree(params[idx]);
+        params[idx] = new_params;
+      }
+
+      for (int s = 0; s < non_rand_idx.size(); s++) {
+        int idx = non_rand_idx[s];
+        Parameter *new_params;
+        cudaMallocManaged((void **)&new_params,
+                          sizeof(Parameter) * (NUM_PARAMETERS + 1));
+
+        for (int i = 0; i < NUM_PARAMETERS; ++i) {
+            // Copy elements before the index
+            new_params[i] = params[idx][i];
+          }
+        
+
+        new_params[NUM_PARAMETERS] = Parameter::ID;
+
+        cudaFree(params[idx]);
+        params[idx] = new_params;
+      }
+
+      NUM_PARAMETERS++;
+
+      for (int e = 0; e < task.num_shots; e++) {
+        for (int p = 0; p < NUM_PARAMETERS; p++) {
+          printf("Shot %d, parameter %d: %d\n", e, p, params[e][p]);
+        }
+      }
+    }
 
     run<<<task.num_shots, MAXIMUM, sizeof(State) * MAXIMUM>>>(
-        states_ptr, task.num_shots, i);
+        states_ptr, task.num_shots, iter_param);
 
     cudaDeviceSynchronize();
 
-    if (params[0][i] == Parameter::RAND) {
+    if (params[0][iter_param] == Parameter::RAND_OP) {
       STATE_COUNTER *= RAND_POSSIBLE_OUTCOME;
     }
 
-    printf("Finish executing parameter %lu\n", i);
+    printf("Finish executing parameter %d\n", iter_param);
+
+    iter_param++;
   }
 
   printf("Start reducing\n");
@@ -262,9 +331,14 @@ int main(int argc, char **argv) {
     }
   }
 
+  cudaEventRecord(stop);
+  cudaEventSynchronize(stop);
+  cudaEventElapsedTime(&elapsedTime, start, stop);
+
   // =================================================================================================================
   // Printing stats
 
+  printf("Time taken: %f\n", elapsedTime);
   for (int i = 0; i < task.num_shots; i++) {
     printf("***********************************************\n");
     printf("Statistics for shot %d\n", i);
@@ -279,4 +353,5 @@ int main(int argc, char **argv) {
   // Benchmarking
 
   cudaFree(states_ptr);
+  cudaFree(params);
 }
