@@ -20,11 +20,11 @@
 
 __managed__ uint64_t STATE_COUNTER = 1;
 
-__managed__ float DISTRIBUTION[4];
-__managed__ int RAND_POSSIBLE_OUTCOME = 4;
-__managed__ int NUM_PARAMETERS = 3;
-__managed__ int NUM_RANDOM_PARAMETERS = 1;
-__managed__ int NUM_SHOTS = 2;
+__managed__ float DISTRIBUTION[10];
+__managed__ int RAND_POSSIBLE_OUTCOME = 10;
+__managed__ int NUM_PARAMETERS = 10;
+__managed__ int NUM_RANDOM_PARAMETERS = 5;
+__managed__ int NUM_SHOTS = 4;
 
 __managed__ Parameter **params;
 
@@ -39,8 +39,9 @@ __global__ void run(State *states, uint64_t num_shots, int param_idx) {
 
     if (threadIdx.x < STATE_COUNTER) {
       per_shot_data[threadIdx.x].a = 0.0;
-      printf("DEVICE: Setting state %u in block %u to value: %f\n", threadIdx.x,
-             blockIdx.x, per_shot_data[threadIdx.x].a);
+      // printf("DEVICE: Setting state %u in block %u to value: %f\n",
+      // threadIdx.x,
+      //  blockIdx.x, per_shot_data[threadIdx.x].a);
     }
 
     __syncthreads();
@@ -49,8 +50,20 @@ __global__ void run(State *states, uint64_t num_shots, int param_idx) {
 
     if (threadIdx.x < STATE_COUNTER) {
       per_shot_data[threadIdx.x].a = 1.0;
-      printf("DEVICE: Setting state %u in block %u to value: %f\n", threadIdx.x,
-             blockIdx.x, per_shot_data[threadIdx.x].a);
+      // printf("DEVICE: Setting state %u in block %u to value: %f\n",
+      // threadIdx.x,
+      //  blockIdx.x, per_shot_data[threadIdx.x].a);
+    }
+
+    __syncthreads();
+
+  } else if (params[blockIdx.x][param_idx] == Parameter::Z_OP) {
+
+    if (threadIdx.x < STATE_COUNTER) {
+      per_shot_data[threadIdx.x].a = 3.0;
+      // printf("DEVICE: Setting state %u in block %u to value: %f\n",
+      // threadIdx.x,
+      //  blockIdx.x, per_shot_data[threadIdx.x].a);
     }
 
     __syncthreads();
@@ -67,14 +80,15 @@ __global__ void run(State *states, uint64_t num_shots, int param_idx) {
     __syncthreads();
 
     if (threadIdx.x < STATE_COUNTER * RAND_POSSIBLE_OUTCOME) {
-      printf("DEVICE: Setting state %u in block %u to random value: %f\n",
-             threadIdx.x, blockIdx.x, per_shot_data[threadIdx.x].a);
+      // printf("DEVICE: Setting state %u in block %u to random value: %f\n",
+      //  threadIdx.x, blockIdx.x, per_shot_data[threadIdx.x].a);
     }
   } else if (params[blockIdx.x][param_idx] == Parameter::ID) {
     if (threadIdx.x < STATE_COUNTER) {
-      printf("DEVICE: state %u in block %u remains identical\n", threadIdx.x, blockIdx.x);
+      // printf("DEVICE: state %u in block %u remains identical\n", threadIdx.x,
+      // blockIdx.x);
     }
-    }
+  }
   __syncthreads();
 
   // HACK: This is a hack to make sure that the states are not overwritten
@@ -82,8 +96,8 @@ __global__ void run(State *states, uint64_t num_shots, int param_idx) {
 
   __syncthreads();
 
-  printf("DEVICE: shot: %u, state, %u: value: %f\n", blockIdx.x, threadIdx.x,
-         states[threadIdx.x].a);
+  // printf("DEVICE: shot: %u, state, %u: value: %f\n", blockIdx.x, threadIdx.x,
+  //  states[threadIdx.x].a);
 }
 
 int main(int argc, char **argv) {
@@ -92,15 +106,30 @@ int main(int argc, char **argv) {
   // Setting up task
 
   for (int i = 0; i < RAND_POSSIBLE_OUTCOME; i++) {
-    DISTRIBUTION[i] = i * 10;
+    DISTRIBUTION[i] = i * 0.1;
     printf("Distribution %d: %f\n", i, DISTRIBUTION[i]);
   }
 
   BatchedTask task;
   task.num_shots = NUM_SHOTS;
 
-  task.params.push_back({Parameter::Y_OP,  Parameter::RAND_OP, Parameter::Y_OP});
-  task.params.push_back({ Parameter::RAND_OP, Parameter::X_OP, Parameter::Y_OP});
+
+  task.params.push_back(
+      {Parameter::ID, Parameter::RAND_OP, Parameter::Y_OP, Parameter::X_OP,
+       Parameter::RAND_OP, Parameter::RAND_OP, Parameter::X_OP,
+       Parameter::RAND_OP, Parameter::RAND_OP, Parameter::X_OP});
+  task.params.push_back({Parameter::ID, Parameter::RAND_OP, Parameter::X_OP,
+                         Parameter::Y_OP, Parameter::RAND_OP, Parameter::X_OP,
+                         Parameter::RAND_OP, Parameter::RAND_OP,
+                         Parameter::RAND_OP, Parameter::Y_OP});
+  task.params.push_back({Parameter::ID, Parameter::RAND_OP, Parameter::X_OP,
+                         Parameter::Y_OP, Parameter::RAND_OP, Parameter::X_OP,
+                         Parameter::RAND_OP, Parameter::RAND_OP,
+                         Parameter::RAND_OP, Parameter::Z_OP});
+  task.params.push_back(
+      {Parameter::ID, Parameter::RAND_OP, Parameter::X_OP, Parameter::RAND_OP,
+       Parameter::X_OP, Parameter::RAND_OP, Parameter::X_OP, Parameter::RAND_OP,
+       Parameter::RAND_OP, Parameter::ID});
 
   for (int i = 0; i < NUM_SHOTS; i++) {
     task.states.push_back({0.0});
@@ -161,7 +190,6 @@ int main(int argc, char **argv) {
 
   size_t MAXIMUM =
       static_cast<size_t>(pow(RAND_POSSIBLE_OUTCOME, NUM_RANDOM_PARAMETERS));
-
 
   // HACK Allocation
   status = cudaMalloc((void **)&states_ptr,
@@ -225,7 +253,7 @@ int main(int argc, char **argv) {
 
     for (int e = 0; e < task.num_shots; e++) {
       for (int p = 0; p < NUM_PARAMETERS; p++) {
-        printf("Shot %d, parameter %d: %d\n", e, p, params[e][p]);
+        // printf("Shot %d, parameter %d: %d\n", e, p, params[e][p]);
       }
     }
 
@@ -241,13 +269,12 @@ int main(int argc, char **argv) {
       if (params[e][iter_param] == Parameter::RAND_OP) {
         rand_op_idx.push_back(e);
         has_rand_op = true;
-        printf("Random operation found at index %d\n", e);
+        // printf("Random operation found at index %d\n", e);
       } else {
         non_rand_idx.push_back(e);
-        printf("Non-random operation found at index %d\n", e);
+        // printf("Non-random operation found at index %d\n", e);
       }
     }
-
 
     // HACK: To add padding ID gates to all shots that encounter a random
     // operation
@@ -259,10 +286,10 @@ int main(int argc, char **argv) {
         cudaMallocManaged((void **)&new_params,
                           sizeof(Parameter) * (NUM_PARAMETERS + 1));
 
-        for (int i = 0; i < NUM_PARAMETERS+1; ++i) {
+        for (int i = 0; i < NUM_PARAMETERS + 1; ++i) {
           if (i < iter_param) {
             // Copy elements before the index
-            new_params[i]  = params[idx][i];
+            new_params[i] = params[idx][i];
           } else if (i > iter_param) {
             // Shift elements after the index
             new_params[i] = params[idx][i - 1];
@@ -281,10 +308,9 @@ int main(int argc, char **argv) {
                           sizeof(Parameter) * (NUM_PARAMETERS + 1));
 
         for (int i = 0; i < NUM_PARAMETERS; ++i) {
-            // Copy elements before the index
-            new_params[i] = params[idx][i];
-          }
-        
+          // Copy elements before the index
+          new_params[i] = params[idx][i];
+        }
 
         new_params[NUM_PARAMETERS] = Parameter::ID;
 
@@ -296,7 +322,7 @@ int main(int argc, char **argv) {
 
       for (int e = 0; e < task.num_shots; e++) {
         for (int p = 0; p < NUM_PARAMETERS; p++) {
-          printf("Shot %d, parameter %d: %d\n", e, p, params[e][p]);
+          // printf("Shot %d, parameter %d: %d\n", e, p, params[e][p]);
         }
       }
     }
@@ -326,7 +352,7 @@ int main(int argc, char **argv) {
 
   for (int e = 0; e < task.num_shots; e++) {
     for (int i = 0; i < MAXIMUM; i++) {
-      printf("HOST: Shot %d, state %d: %f\n", e, i, d_states[e][i].a);
+      // printf("HOST: Shot %d, state %d: %f\n", e, i, d_states[e][i].a);
       stats[e][d_states[e][i].a]++;
     }
   }
