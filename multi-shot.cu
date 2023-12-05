@@ -1,5 +1,4 @@
 
-#include <asm-generic/errno.h>
 #include <math.h>
 #include <random>
 #include <stdint.h>
@@ -20,24 +19,26 @@
 
 __managed__ uint64_t STATE_COUNTER = 1;
 
-__managed__ float DISTRIBUTION[10];
-__managed__ int RAND_POSSIBLE_OUTCOME = 10;
+__managed__ float DISTRIBUTION[5];
+__managed__ int RAND_POSSIBLE_OUTCOME = 5;
 __managed__ int NUM_PARAMETERS = -1;
 __managed__ int NUM_RANDOM_PARAMETERS = 5;
-__managed__ int NUM_SHOTS = 4;
+__managed__ int NUM_SHOTS = 2;
 
 __managed__ Parameter **params;
 
-__global__ void run(State *states, uint64_t num_shots, int param_idx) {
+__global__ void run(State *states, uint64_t num_shots,
+                    uint64_t num_blocks_per_shot, int param_idx) {
 
   extern __shared__ State per_shot_data[];
 
   uint64_t global_idx = blockIdx.x * blockDim.x + threadIdx.x;
+  uint64_t shot_idx = blockIdx.x / num_blocks_per_shot;
 
   // Transformation
-  if (params[blockIdx.x][param_idx] == Parameter::X_OP) {
+  if (params[shot_idx][param_idx] == Parameter::X_OP) {
 
-    if (threadIdx.x < STATE_COUNTER) {
+    if (blockIdx.x == shot_idx && threadIdx.x < STATE_COUNTER) {
       per_shot_data[threadIdx.x].a = 0.0;
       // printf("DEVICE: Setting state %u in block %u to value: %f\n",
       // threadIdx.x,
@@ -46,9 +47,9 @@ __global__ void run(State *states, uint64_t num_shots, int param_idx) {
 
     __syncthreads();
 
-  } else if (params[blockIdx.x][param_idx] == Parameter::Y_OP) {
+  } else if (params[shot_idx][param_idx] == Parameter::Y_OP) {
 
-    if (threadIdx.x < STATE_COUNTER) {
+    if (blockIdx.x == shot_idx && threadIdx.x < STATE_COUNTER) {
       per_shot_data[threadIdx.x].a = 1.0;
       // printf("DEVICE: Setting state %u in block %u to value: %f\n",
       // threadIdx.x,
@@ -57,9 +58,9 @@ __global__ void run(State *states, uint64_t num_shots, int param_idx) {
 
     __syncthreads();
 
-  } else if (params[blockIdx.x][param_idx] == Parameter::Z_OP) {
+  } else if (params[shot_idx][param_idx] == Parameter::Z_OP) {
 
-    if (threadIdx.x < STATE_COUNTER) {
+    if (blockIdx.x == shot_idx && threadIdx.x < STATE_COUNTER) {
       per_shot_data[threadIdx.x].a = 3.0;
       // printf("DEVICE: Setting state %u in block %u to value: %f\n",
       // threadIdx.x,
@@ -67,29 +68,12 @@ __global__ void run(State *states, uint64_t num_shots, int param_idx) {
     }
 
     __syncthreads();
-
-  } else if (params[blockIdx.x][param_idx] == Parameter::RAND_OP) {
-
-    if (threadIdx.x < STATE_COUNTER) {
-
-      for (int i = 0; i < RAND_POSSIBLE_OUTCOME; i++) {
-        per_shot_data[threadIdx.x + i * STATE_COUNTER].a = DISTRIBUTION[i];
-      }
-    }
-
-    __syncthreads();
-
-    if (threadIdx.x < STATE_COUNTER * RAND_POSSIBLE_OUTCOME) {
-      // printf("DEVICE: Setting state %u in block %u to random value: %f\n",
-      //  threadIdx.x, blockIdx.x, per_shot_data[threadIdx.x].a);
-    }
-  } else if (params[blockIdx.x][param_idx] == Parameter::ID) {
-    if (threadIdx.x < STATE_COUNTER) {
-      // printf("DEVICE: state %u in block %u remains identical\n", threadIdx.x,
-      // blockIdx.x);
-    }
+  } else if (params[shot_idx][param_idx] == Parameter::ID) {
+    // if (threadIdx.x < STATE_COUNTER) {
+    //   printf("DEVICE: state %u in block %u remains identical\n",
+    //   threadIdx.x, blockIdx.x);
+    // }
   }
-  __syncthreads();
 
   // HACK: This is a hack to make sure that the states are not overwritten
   states[global_idx] = per_shot_data[threadIdx.x];
@@ -98,6 +82,46 @@ __global__ void run(State *states, uint64_t num_shots, int param_idx) {
 
   // printf("DEVICE: shot: %u, state, %u: value: %f\n", blockIdx.x, threadIdx.x,
   //  states[threadIdx.x].a);
+}
+
+__global__ void run_random(State *states, uint64_t num_shots,
+                           uint64_t num_blocks_per_shot, int param_idx) {
+  extern __shared__ State per_shot_data[];
+
+  uint64_t global_idx = blockIdx.x * blockDim.x + threadIdx.x;
+  uint64_t shot_idx = blockIdx.x / num_blocks_per_shot;
+
+  if (blockIdx.x == shot_idx && threadIdx.x < STATE_COUNTER) {
+
+    for (int i = 0; i < RAND_POSSIBLE_OUTCOME; i++) {
+      int new_idx = threadIdx.x + i * STATE_COUNTER;
+      if (new_idx >= 1024) {
+        new_idx = global_idx + i * STATE_COUNTER;
+      }
+
+      per_shot_data[new_idx].a = DISTRIBUTION[i];
+    }
+  }
+
+  if (threadIdx.x == 0 && blockIdx.x == 0) {
+    STATE_COUNTER *= RAND_POSSIBLE_OUTCOME;
+  }
+
+  // HACK: This is a hack to make sure that the states are not overwritten
+  states[global_idx] = per_shot_data[threadIdx.x];
+
+  __syncthreads();
+
+  // printf("DEVICE: shot: %u, state, %u: value: %f\n", blockIdx.x, threadIdx.x,
+  //  states[threadIdx.x].a);
+}
+
+void memoryInfo() {
+  size_t free_mem, total_mem;
+  cudaMemGetInfo(&free_mem, &total_mem);
+
+  printf("Free memory: %lu\n", free_mem);
+  printf("Total memory: %lu\n", total_mem);
 }
 
 int main(int argc, char **argv) {
@@ -121,21 +145,20 @@ int main(int argc, char **argv) {
                          Parameter::Y_OP, Parameter::RAND_OP, Parameter::X_OP,
                          Parameter::RAND_OP, Parameter::RAND_OP,
                          Parameter::RAND_OP, Parameter::Y_OP});
-  task.params.push_back({Parameter::ID, Parameter::RAND_OP, Parameter::X_OP,
-                         Parameter::Y_OP, Parameter::RAND_OP, Parameter::X_OP,
-                         Parameter::RAND_OP, Parameter::RAND_OP,
-                         Parameter::RAND_OP, Parameter::Z_OP});
-  task.params.push_back(
-      {Parameter::ID, Parameter::RAND_OP, Parameter::X_OP, Parameter::RAND_OP,
-       Parameter::X_OP, Parameter::RAND_OP, Parameter::X_OP, Parameter::RAND_OP,
-       Parameter::RAND_OP, Parameter::ID});
+  // task.params.push_back({Parameter::ID, Parameter::RAND_OP, Parameter::X_OP,
+  //                        Parameter::Y_OP, Parameter::RAND_OP,
+  //                        Parameter::X_OP, Parameter::RAND_OP,
+  //                        Parameter::RAND_OP, Parameter::RAND_OP,
+  //                        Parameter::Z_OP});
+  // task.params.push_back(
+  //     {Parameter::ID, Parameter::RAND_OP, Parameter::X_OP,
+  //     Parameter::RAND_OP,
+  //      Parameter::X_OP, Parameter::RAND_OP, Parameter::X_OP,
+  //      Parameter::RAND_OP, Parameter::RAND_OP, Parameter::ID});
 
-  for (int i = 0; i < NUM_SHOTS; i++) {
+  for (int i = 0; i < task.num_shots; i++) {
     task.states.push_back({0.0});
   }
-
-
-
 
   // =================================================================================================================
   // Check for CUDA device
@@ -155,30 +178,20 @@ int main(int argc, char **argv) {
     exit(EXIT_FAILURE);
   }
 
-  size_t free_mem, total_mem;
-
-  cudaError_t cuda_status = cudaMemGetInfo(&free_mem, &total_mem);
-  if (cuda_status != cudaSuccess) {
-    printf("Error getting CUDA memory info - %s\n",
-           cudaGetErrorString(cuda_status));
-    exit(EXIT_FAILURE);
-  }
-
-  printf("Free memory: %lu\n", free_mem);
-  printf("Total memory: %lu\n", total_mem);
+  printf("Before allocating, memory info:\n");
+  memoryInfo();
 
   // =================================================================================================================
   // Setting parameters for CUDA device
 
   printf("Preparing memory space\n");
 
-  
-  for (int e = 0; e < task.num_shots(); e++){
+  for (int e = 0; e < task.num_shots; e++) {
     NUM_PARAMETERS = std::max(NUM_PARAMETERS, (int)task.params[e].size());
   }
 
-  for (int e = 0; e < task.num_shots; e++){
-    for (int i = task.params[e].size(); i < NUM_PARAMETERS; i++){
+  for (int e = 0; e < task.num_shots; e++) {
+    for (int i = task.params[e].size(); i < NUM_PARAMETERS; i++) {
       task.params[e].push_back(Parameter::ID);
     }
   }
@@ -204,10 +217,14 @@ int main(int argc, char **argv) {
       static_cast<size_t>(pow(RAND_POSSIBLE_OUTCOME, NUM_RANDOM_PARAMETERS));
 
   State *states_ptr;
+  int num_blocks_per_shot = MAXIMUM / 1024;
+  if (MAXIMUM % 1024 != 0) {
+    num_blocks_per_shot++;
+  }
 
   // HACK Allocation
-  status = cudaMalloc((void **)&states_ptr,
-                      sizeof(State) * task.num_shots * MAXIMUM);
+  status = cudaMalloc((void **)&states_ptr, sizeof(State) * task.num_shots *
+                                                num_blocks_per_shot * 1024);
   if (status != cudaSuccess) {
     printf("Error allocating memory for initial states - %s\n",
            cudaGetErrorString(status));
@@ -216,8 +233,8 @@ int main(int argc, char **argv) {
     printf("Allocated memory for initial states\n");
   }
 
-  printf("Grid dim: %lu\n", task.num_shots);
-  printf("Block dim: %zu\n", MAXIMUM);
+  printf("Grid dim: %lu\n", task.num_shots * num_blocks_per_shot);
+  printf("Block dim: %d\n", 1024);
 
   cudaMallocManaged((void **)&params, sizeof(Parameter *) * task.num_shots);
   for (int i = 0; i < task.num_shots; i++) {
@@ -228,6 +245,9 @@ int main(int argc, char **argv) {
       // printf("Shot %d, parameter %d: %d\n", i, j, params[i][j]);
     }
   }
+
+  printf("After allocating, memory info:\n");
+  memoryInfo();
 
   // =================================================================================================================
   // Copy data to device
@@ -259,6 +279,11 @@ int main(int argc, char **argv) {
   int iter_param = 0;
 
   while (iter_param < NUM_PARAMETERS) {
+
+    printf("Start executing parameter %d\n", iter_param);
+    printf("STATE_COUNTER: %lu\n", STATE_COUNTER);
+
+
     bool all_rand_op = true;
     bool has_rand_op = false;
 
@@ -267,7 +292,7 @@ int main(int argc, char **argv) {
 
     for (int e = 0; e < task.num_shots; e++) {
       for (int p = 0; p < NUM_PARAMETERS; p++) {
-        // printf("Shot %d, parameter %d: %d\n", e, p, params[e][p]);
+        printf("Shot %d, parameter %d: %d\n", e, p, params[e][p]);
       }
     }
 
@@ -341,15 +366,18 @@ int main(int argc, char **argv) {
       }
     }
 
-    run<<<task.num_shots, MAXIMUM, sizeof(State) * MAXIMUM>>>(
-        states_ptr, task.num_shots, iter_param);
+    if (all_rand_op){
+      run_random<<<task.num_shots * num_blocks_per_shot, 1024, sizeof(State) * 1024>>>(
+        states_ptr, task.num_shots, num_blocks_per_shot, iter_param);
+    }
+    else{
+    run<<<task.num_shots * num_blocks_per_shot, 1024, sizeof(State) * 1024>>>(
+        states_ptr, task.num_shots, num_blocks_per_shot, iter_param);
+    }
 
     cudaDeviceSynchronize();
 
-    if (params[0][iter_param] == Parameter::RAND_OP) {
-      STATE_COUNTER *= RAND_POSSIBLE_OUTCOME;
-    }
-
+    printf("STATE_COUNTER: %lu\n", STATE_COUNTER);
     printf("Finish executing parameter %d\n", iter_param);
 
     iter_param++;
