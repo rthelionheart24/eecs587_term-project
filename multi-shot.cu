@@ -22,7 +22,7 @@ __managed__ uint64_t STATE_COUNTER = 1;
 
 __managed__ float DISTRIBUTION[10];
 __managed__ int RAND_POSSIBLE_OUTCOME = 10;
-__managed__ int NUM_PARAMETERS = 10;
+__managed__ int NUM_PARAMETERS = -1;
 __managed__ int NUM_RANDOM_PARAMETERS = 5;
 __managed__ int NUM_SHOTS = 4;
 
@@ -103,7 +103,7 @@ __global__ void run(State *states, uint64_t num_shots, int param_idx) {
 int main(int argc, char **argv) {
 
   // =================================================================================================================\
-  // Setting up task
+  // Immitating user setting up a batched task
 
   for (int i = 0; i < RAND_POSSIBLE_OUTCOME; i++) {
     DISTRIBUTION[i] = i * 0.1;
@@ -112,7 +112,6 @@ int main(int argc, char **argv) {
 
   BatchedTask task;
   task.num_shots = NUM_SHOTS;
-
 
   task.params.push_back(
       {Parameter::ID, Parameter::RAND_OP, Parameter::Y_OP, Parameter::X_OP,
@@ -135,12 +134,8 @@ int main(int argc, char **argv) {
     task.states.push_back({0.0});
   }
 
-  State *states_ptr;
 
-  printf("Number of shots: %lu\n", task.num_shots);
-  printf("Number of parameters: %d\n", NUM_PARAMETERS);
-  printf("Number of random parameters: %d\n", NUM_RANDOM_PARAMETERS);
-  printf("Number of possible outcomes: %d\n", RAND_POSSIBLE_OUTCOME);
+
 
   // =================================================================================================================
   // Check for CUDA device
@@ -174,7 +169,24 @@ int main(int argc, char **argv) {
 
   // =================================================================================================================
   // Setting parameters for CUDA device
+
   printf("Preparing memory space\n");
+
+  
+  for (int e = 0; e < task.num_shots(); e++){
+    NUM_PARAMETERS = std::max(NUM_PARAMETERS, (int)task.params[e].size());
+  }
+
+  for (int e = 0; e < task.num_shots; e++){
+    for (int i = task.params[e].size(); i < NUM_PARAMETERS; i++){
+      task.params[e].push_back(Parameter::ID);
+    }
+  }
+
+  printf("Number of shots: %lu\n", task.num_shots);
+  printf("Number of parameters: %d\n", NUM_PARAMETERS);
+  printf("Number of random parameters: %d\n", NUM_RANDOM_PARAMETERS);
+  printf("Number of possible outcomes: %d\n", RAND_POSSIBLE_OUTCOME);
 
   cudaDeviceReset();
 
@@ -190,6 +202,8 @@ int main(int argc, char **argv) {
 
   size_t MAXIMUM =
       static_cast<size_t>(pow(RAND_POSSIBLE_OUTCOME, NUM_RANDOM_PARAMETERS));
+
+  State *states_ptr;
 
   // HACK Allocation
   status = cudaMalloc((void **)&states_ptr,
