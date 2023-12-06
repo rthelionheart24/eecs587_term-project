@@ -1,4 +1,3 @@
-#include <cstdlib>
 #include <math.h>
 #include <random>
 #include <stdint.h>
@@ -19,11 +18,11 @@
 
 __managed__ uint64_t STATE_COUNTER = 1;
 
-__managed__ float DISTRIBUTION[50];
-__managed__ int RAND_POSSIBLE_OUTCOME = 50;
+__managed__ float DISTRIBUTION[10];
+__managed__ int RAND_POSSIBLE_OUTCOME = 10;
 __managed__ int NUM_PARAMETERS = -1;
 __managed__ int NUM_RANDOM_PARAMETERS = 5;
-__managed__ int NUM_SHOTS = 10;
+__managed__ int NUM_SHOTS = 1;
 
 __managed__ Parameter **params;
 
@@ -34,48 +33,35 @@ __global__ void run(State *states, uint64_t num_shots,
   uint64_t shot_idx = blockIdx.x / num_blocks_per_shot;
   uint64_t state_idx = global_idx - shot_idx * num_blocks_per_shot * 1024;
 
+  if (state_idx > STATE_COUNTER) {
+    return;
+  }
+
   // Transformation
   if (params[shot_idx][param_idx] == Parameter::X_OP) {
 
-    if (state_idx < STATE_COUNTER) {
-      states[global_idx].a = 1.0;
-      // printf("DEVICE: Setting state %u in block %u to value: %f\n",
-      // threadIdx.x,
-      //  blockIdx.x, per_shot_data[threadIdx.x].a);
-    }
-
-    __syncthreads();
+    states[global_idx].a = 1.0;
+    // printf("DEVICE: Setting state %u in block %u to value: %f\n",
+    // threadIdx.x,
+    //  blockIdx.x, per_shot_data[threadIdx.x].a);
   }
   if (params[shot_idx][param_idx] == Parameter::Y_OP) {
 
-    if (state_idx < STATE_COUNTER) {
-      states[global_idx].a = 2.0;
-      // printf("DEVICE: Setting state %u in block %u to value: %f\n",
-      // threadIdx.x,
-      //  blockIdx.x, per_shot_data[threadIdx.x].a);
-    }
-
-    __syncthreads();
+    states[global_idx].a = 2.0;
+    // printf("DEVICE: Setting state %u in block %u to value: %f\n",
+    // threadIdx.x,
+    //  blockIdx.x, per_shot_data[threadIdx.x].a);
   }
   if (params[shot_idx][param_idx] == Parameter::Z_OP) {
 
-    if (state_idx < STATE_COUNTER) {
-      states[global_idx].a = 3.0;
-      // printf("DEVICE: Setting state %u in block %u to value: %f\n",
-      // threadIdx.x,
-      //  blockIdx.x, per_shot_data[threadIdx.x].a);
-    }
-
-    __syncthreads();
+    states[global_idx].a = 3.0;
+    // printf("DEVICE: Setting state %u in block %u to value: %f\n",
+    // threadIdx.x,
+    //  blockIdx.x, per_shot_data[threadIdx.x].a);
   }
   if (params[shot_idx][param_idx] == Parameter::ID) {
-    // if (threadIdx.x < STATE_COUNTER) {
-    //   printf("DEVICE: state %u in block %u remains identical\n",
-    //   threadIdx.x, blockIdx.x);
-    // }
+    printf("ID\n");
   }
-
-  __syncthreads();
 }
 
 __global__ void run_random(State *states, uint64_t num_shots,
@@ -85,27 +71,18 @@ __global__ void run_random(State *states, uint64_t num_shots,
   uint64_t shot_idx = blockIdx.x / num_blocks_per_shot;
   uint64_t state_idx = global_idx - shot_idx * num_blocks_per_shot * 1024;
 
-  if (state_idx < STATE_COUNTER) {
-
-    for (int i = 0; i < RAND_POSSIBLE_OUTCOME; i++) {
-      int new_idx = global_idx + i * STATE_COUNTER;
-      // printf("new_idx: %d, shot: %lu, value: %f, i: %d\n", new_idx, shot_idx,
-      //        states[new_idx].a, i);
-      states[new_idx].a = DISTRIBUTION[i];
-    }
+  if (state_idx >= STATE_COUNTER) {
+    return;
   }
 
-  __syncthreads();
-
-  if (global_idx == 0) {
-    STATE_COUNTER *= RAND_POSSIBLE_OUTCOME;
+  for (int i = 0; i < RAND_POSSIBLE_OUTCOME; i++) {
+    uint64_t new_idx = global_idx + i * STATE_COUNTER;
+    printf("new_idx: %lu, global_idx: %lu, state_idx: %lu i: %d\n", new_idx,
+           global_idx, state_idx, i);
+    states[new_idx].a = DISTRIBUTION[i];
   }
 
-  // if (global_idx - shot_idx * num_blocks_per_shot * 1024 < STATE_COUNTER) {
-  //   printf("DEVICE: shot: %lu, state, %lu value: %f\n", shot_idx,
-  //          global_idx - shot_idx * num_blocks_per_shot * 1024,
-  //          states[global_idx].a);
-  // }
+
 }
 
 void memoryInfo() {
@@ -150,7 +127,6 @@ int main(int argc, char **argv) {
   //      Parameter::RAND_OP, Parameter::RAND_OP, Parameter::ID});
 
   for (int i = 0; i < task.num_shots; i++) {
-    task.states.push_back({0.0});
     task.params.push_back(
         {Parameter::ID, Parameter::RAND_OP, Parameter::X_OP, Parameter::RAND_OP,
          Parameter::X_OP, Parameter::RAND_OP, Parameter::X_OP,
@@ -222,6 +198,8 @@ int main(int argc, char **argv) {
 
   size_t MAXIMUM =
       static_cast<size_t>(pow(RAND_POSSIBLE_OUTCOME, NUM_RANDOM_PARAMETERS));
+
+  printf("Maximum number of states: %lu\n", MAXIMUM);
 
   State *states_ptr;
   int num_blocks_per_shot = MAXIMUM / 1024;
@@ -324,7 +302,7 @@ int main(int argc, char **argv) {
     // HACK: To add padding ID gates to all shots that encounter a random
     // operation
     if (has_rand_op && !all_rand_op) {
-
+      printf("Adding padding ID gates\n");
       for (int s = 0; s < rand_op_idx.size(); s++) {
         int idx = rand_op_idx[s];
         Parameter *new_params;
@@ -364,22 +342,36 @@ int main(int argc, char **argv) {
       }
 
       NUM_PARAMETERS++;
+    }
 
-      for (int e = 0; e < task.num_shots; e++) {
-        for (int p = 0; p < NUM_PARAMETERS; p++) {
-          // printf("Shot %d, parameter %d: %d\n", e, p, params[e][p]);
-        }
+    for (int e = 0; e < task.num_shots; e++) {
+      for (int p = 0; p < NUM_PARAMETERS; p++) {
+        printf("Shot %d, parameter %d: %d\n", e, p, params[e][p]);
       }
     }
 
-    printf("Launching kernel\n");
+    cudaDeviceSynchronize();
+
     if (all_rand_op) {
+      printf("Launching random kernel\n");
       run_random<<<task.num_shots * num_blocks_per_shot, 1024>>>(
           states_ptr, task.num_shots, num_blocks_per_shot, iter_param);
+      cudaError_t err = cudaGetLastError();
+      if (err != cudaSuccess) {
+        printf("CUDA Error: %s\n", cudaGetErrorString(err));
+      }
+      STATE_COUNTER *= RAND_POSSIBLE_OUTCOME;
     } else {
+      printf("Launching kernel\n");
       run<<<task.num_shots * num_blocks_per_shot, 1024>>>(
           states_ptr, task.num_shots, num_blocks_per_shot, iter_param);
+      cudaError_t err = cudaGetLastError();
+      if (err != cudaSuccess) {
+        printf("CUDA Error: %s\n", cudaGetErrorString(err));
+      }
     }
+
+    printf("Kernel returns\n");
 
     cudaDeviceSynchronize();
 
