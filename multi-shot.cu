@@ -33,7 +33,7 @@ __global__ void run(State *states, uint64_t num_shots,
   uint64_t shot_idx = blockIdx.x / num_blocks_per_shot;
   uint64_t state_idx = global_idx - shot_idx * num_blocks_per_shot * 1024;
 
-  if (state_idx > STATE_COUNTER) {
+  if (state_idx >= STATE_COUNTER) {
     return;
   }
 
