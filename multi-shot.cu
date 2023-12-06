@@ -18,8 +18,8 @@
 
 __managed__ uint64_t STATE_COUNTER = 1;
 
-__managed__ float DISTRIBUTION[10];
-__managed__ int RAND_POSSIBLE_OUTCOME = 10;
+__managed__ float DISTRIBUTION[1];
+__managed__ int RAND_POSSIBLE_OUTCOME = 1;
 __managed__ int NUM_PARAMETERS = -1;
 __managed__ int NUM_RANDOM_PARAMETERS = 5;
 __managed__ int NUM_SHOTS = 1;
@@ -81,7 +81,6 @@ __global__ void run_random(State *states, uint64_t num_shots,
            global_idx, state_idx, i);
     states[new_idx].a = DISTRIBUTION[i];
   }
-
 
 }
 
