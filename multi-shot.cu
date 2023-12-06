@@ -18,11 +18,11 @@
 
 __managed__ uint64_t STATE_COUNTER = 1;
 
-__managed__ float DISTRIBUTION[1];
-__managed__ int RAND_POSSIBLE_OUTCOME = 1;
+__managed__ float DISTRIBUTION[40];
+__managed__ int RAND_POSSIBLE_OUTCOME = 40;
 __managed__ int NUM_PARAMETERS = -1;
 __managed__ int NUM_RANDOM_PARAMETERS = 5;
-__managed__ int NUM_SHOTS = 1;
+__managed__ int NUM_SHOTS = 4;
 
 __managed__ Parameter **params;
 
@@ -31,11 +31,10 @@ __global__ void run(State *states, uint64_t num_shots,
 
   uint64_t global_idx = blockIdx.x * blockDim.x + threadIdx.x;
   uint64_t shot_idx = blockIdx.x / num_blocks_per_shot;
-  uint64_t state_idx = global_idx - shot_idx * num_blocks_per_shot * 1024;
+  uint64_t state_idx = global_idx % (num_blocks_per_shot * 1024);
 
-  if (state_idx >= STATE_COUNTER) {
+  if (state_idx >= STATE_COUNTER)
     return;
-  }
 
   // Transformation
   if (params[shot_idx][param_idx] == Parameter::X_OP) {
@@ -60,7 +59,7 @@ __global__ void run(State *states, uint64_t num_shots,
     //  blockIdx.x, per_shot_data[threadIdx.x].a);
   }
   if (params[shot_idx][param_idx] == Parameter::ID) {
-    printf("ID\n");
+    // printf("ID\n");
   }
 }
 
@@ -71,14 +70,18 @@ __global__ void run_random(State *states, uint64_t num_shots,
   uint64_t shot_idx = blockIdx.x / num_blocks_per_shot;
   uint64_t state_idx = global_idx - shot_idx * num_blocks_per_shot * 1024;
 
+  // printf("STATE_COUNTER: %lu\n", STATE_COUNTER);
+
   if (state_idx >= STATE_COUNTER) {
+    // printf("state_idx: %lu, global_idx: %lu, shot_idx: %lu\n", state_idx,
+    //        global_idx, shot_idx);
     return;
   }
 
   for (int i = 0; i < RAND_POSSIBLE_OUTCOME; i++) {
     uint64_t new_idx = global_idx + i * STATE_COUNTER;
-    printf("new_idx: %lu, global_idx: %lu, state_idx: %lu i: %d\n", new_idx,
-           global_idx, state_idx, i);
+    // printf("new_idx: %lu, global_idx: %lu, state_idx: %lu i: %d\n", new_idx,
+    //        global_idx, state_idx, i);
     states[new_idx].a = DISTRIBUTION[i];
   }
 
@@ -264,8 +267,8 @@ int main(int argc, char **argv) {
 
   while (iter_param < NUM_PARAMETERS) {
 
-    printf("Start executing parameter %d\n", iter_param);
-    printf("STATE_COUNTER: %lu\n", STATE_COUNTER);
+    // printf("Start executing parameter %d\n", iter_param);
+    // printf("STATE_COUNTER: %lu\n", STATE_COUNTER);
 
     bool all_rand_op = true;
     bool has_rand_op = false;
@@ -343,42 +346,50 @@ int main(int argc, char **argv) {
       NUM_PARAMETERS++;
     }
 
-    for (int e = 0; e < task.num_shots; e++) {
-      for (int p = 0; p < NUM_PARAMETERS; p++) {
-        printf("Shot %d, parameter %d: %d\n", e, p, params[e][p]);
-      }
-    }
+    // for (int e = 0; e < task.num_shots; e++) {
+    //   for (int p = 0; p < NUM_PARAMETERS; p++) {
+    //     printf("Shot %d, parameter %d: %d\n", e, p, params[e][p]);
+    //   }
+    // }
 
     cudaDeviceSynchronize();
 
     if (all_rand_op) {
-      printf("Launching random kernel\n");
+      // printf("Launching random kernel\n");
       run_random<<<task.num_shots * num_blocks_per_shot, 1024>>>(
           states_ptr, task.num_shots, num_blocks_per_shot, iter_param);
+
+      cudaDeviceSynchronize();
+
       cudaError_t err = cudaGetLastError();
       if (err != cudaSuccess) {
         printf("CUDA Error: %s\n", cudaGetErrorString(err));
       }
+
+      
       STATE_COUNTER *= RAND_POSSIBLE_OUTCOME;
     } else {
-      printf("Launching kernel\n");
+      // printf("Launching kernel\n");
       run<<<task.num_shots * num_blocks_per_shot, 1024>>>(
           states_ptr, task.num_shots, num_blocks_per_shot, iter_param);
+
+      cudaDeviceSynchronize();
+
       cudaError_t err = cudaGetLastError();
       if (err != cudaSuccess) {
         printf("CUDA Error: %s\n", cudaGetErrorString(err));
       }
     }
 
-    printf("Kernel returns\n");
+    // printf("Kernel returns\n");
 
     cudaDeviceSynchronize();
 
-    printf("STATE_COUNTER: %lu\n", STATE_COUNTER);
-    printf("Finish executing parameter %d\n", iter_param);
+    // printf("STATE_COUNTER: %lu\n", STATE_COUNTER);
+    // printf("Finish executing parameter %d\n", iter_param);
 
     iter_param++;
-    printf("Increamenting iter_param to %d\n", iter_param);
+    // printf("Increamenting iter_param to %d\n", iter_param);
   }
 
   printf("Start reducing\n");
