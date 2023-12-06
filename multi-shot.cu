@@ -1,3 +1,4 @@
+#include <cstdlib>
 #include <math.h>
 #include <random>
 #include <stdint.h>
@@ -18,8 +19,8 @@
 
 __managed__ uint64_t STATE_COUNTER = 1;
 
-__managed__ float DISTRIBUTION[10];
-__managed__ int RAND_POSSIBLE_OUTCOME = 10;
+__managed__ float DISTRIBUTION[50];
+__managed__ int RAND_POSSIBLE_OUTCOME = 50;
 __managed__ int NUM_PARAMETERS = -1;
 __managed__ int NUM_RANDOM_PARAMETERS = 5;
 __managed__ int NUM_SHOTS = 10;
@@ -88,10 +89,9 @@ __global__ void run_random(State *states, uint64_t num_shots,
 
     for (int i = 0; i < RAND_POSSIBLE_OUTCOME; i++) {
       int new_idx = global_idx + i * STATE_COUNTER;
-
+      // printf("new_idx: %d, shot: %lu, value: %f, i: %d\n", new_idx, shot_idx,
+      //        states[new_idx].a, i);
       states[new_idx].a = DISTRIBUTION[i];
-      // printf("new_idx: %d, shot: %lu, value: %f\n", new_idx, shot_idx,
-      // states[new_idx].a);
     }
   }
 
@@ -101,15 +101,11 @@ __global__ void run_random(State *states, uint64_t num_shots,
     STATE_COUNTER *= RAND_POSSIBLE_OUTCOME;
   }
 
-  __syncthreads();
-
   // if (global_idx - shot_idx * num_blocks_per_shot * 1024 < STATE_COUNTER) {
   //   printf("DEVICE: shot: %lu, state, %lu value: %f\n", shot_idx,
   //          global_idx - shot_idx * num_blocks_per_shot * 1024,
   //          states[global_idx].a);
   // }
-
-  __syncthreads();
 }
 
 void memoryInfo() {
@@ -178,6 +174,16 @@ int main(int argc, char **argv) {
     printf("Error setting CUDA device - %s\n", cudaGetErrorString(err));
     exit(EXIT_FAILURE);
   }
+  int device;
+  cudaDeviceProp properties;
+  cudaGetDevice(&device);
+  cudaGetDeviceProperties(&properties, device);
+
+  printf("Max threads per block: %d\n", properties.maxThreadsPerBlock);
+  printf("Max block dimensions: (%d, %d, %d)\n", properties.maxThreadsDim[0],
+         properties.maxThreadsDim[1], properties.maxThreadsDim[2]);
+  printf("Max grid dimensions: (%d, %d, %d)\n", properties.maxGridSize[0],
+         properties.maxGridSize[1], properties.maxGridSize[2]);
 
   printf("Before allocating, memory info:\n");
   memoryInfo();
@@ -253,16 +259,15 @@ int main(int argc, char **argv) {
   // =================================================================================================================
   // Copy data to device
 
-  State d_states[task.num_shots][num_blocks_per_shot * 1024];
+  State *d_states = (State *)malloc(task.num_shots * num_blocks_per_shot *
+                                    1024 * sizeof(State));
 
-  for (int i = 0; i < task.num_shots; i++) {
-    for (int j = 0; j < num_blocks_per_shot * 1024; j++) {
-      d_states[i][j].a = 0.0;
-    }
+  for (int j = 0; j < task.num_shots * num_blocks_per_shot * 1024; j++) {
+    d_states[j].a = 0.0;
   }
 
   status =
-      cudaMemcpy((void *)states_ptr, &d_states,
+      cudaMemcpy((void *)states_ptr, (void *)d_states,
                  num_blocks_per_shot * 1024 * task.num_shots * sizeof(State),
                  cudaMemcpyHostToDevice);
   if (status != cudaSuccess) {
@@ -283,7 +288,7 @@ int main(int argc, char **argv) {
   while (iter_param < NUM_PARAMETERS) {
 
     printf("Start executing parameter %d\n", iter_param);
-    // printf("STATE_COUNTER: %lu\n", STATE_COUNTER);
+    printf("STATE_COUNTER: %lu\n", STATE_COUNTER);
 
     bool all_rand_op = true;
     bool has_rand_op = false;
@@ -378,10 +383,11 @@ int main(int argc, char **argv) {
 
     cudaDeviceSynchronize();
 
-    // printf("STATE_COUNTER: %lu\n", STATE_COUNTER);
+    printf("STATE_COUNTER: %lu\n", STATE_COUNTER);
     printf("Finish executing parameter %d\n", iter_param);
 
     iter_param++;
+    printf("Increamenting iter_param to %d\n", iter_param);
   }
 
   printf("Start reducing\n");
@@ -397,7 +403,7 @@ int main(int argc, char **argv) {
   for (int e = 0; e < task.num_shots; e++) {
     for (int i = 0; i < MAXIMUM; i++) {
       // printf("HOST: Shot %d, state %d: %f\n", e, i, d_states[e][i].a);
-      stats[e][d_states[e][i].a]++;
+      stats[e][d_states[e * num_blocks_per_shot * 1024 + i].a]++;
     }
   }
 
@@ -424,4 +430,5 @@ int main(int argc, char **argv) {
 
   cudaFree(states_ptr);
   cudaFree(params);
+  delete[] d_states;
 }
