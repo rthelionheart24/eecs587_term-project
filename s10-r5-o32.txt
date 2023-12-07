@@ -1,0 +1,404 @@
+Distribution 0: 0.000000
+Distribution 1: 0.100000
+Distribution 2: 0.200000
+Distribution 3: 0.300000
+Distribution 4: 0.400000
+Distribution 5: 0.500000
+Distribution 6: 0.600000
+Distribution 7: 0.700000
+Distribution 8: 0.800000
+Distribution 9: 0.900000
+Distribution 10: 1.000000
+Distribution 11: 1.100000
+Distribution 12: 1.200000
+Distribution 13: 1.300000
+Distribution 14: 1.400000
+Distribution 15: 1.500000
+Distribution 16: 1.600000
+Distribution 17: 1.700000
+Distribution 18: 1.800000
+Distribution 19: 1.900000
+Distribution 20: 2.000000
+Distribution 21: 2.100000
+Distribution 22: 2.200000
+Distribution 23: 2.300000
+Distribution 24: 2.400000
+Distribution 25: 2.500000
+Distribution 26: 2.600000
+Distribution 27: 2.700000
+Distribution 28: 2.800000
+Distribution 29: 2.900000
+Distribution 30: 3.000000
+Distribution 31: 3.100000
+Max threads per block: 1024
+Max block dimensions: (1024, 1024, 64)
+Max grid dimensions: (2147483647, 65535, 65535)
+Before allocating, memory info:
+Free memory: 11588861952
+Total memory: 12878086144
+Preparing memory space
+Number of shots: 10
+Number of parameters: 10
+Number of random parameters: 5
+Number of possible outcomes: 32
+Maximum number of states: 33554432
+Allocated memory for initial states
+Grid dim: 327680
+Block dim: 1024
+After allocating, memory info:
+Free memory: 10246684672
+Total memory: 12878086144
+Copied initial states to device
+Running task
+Start reducing
+Time taken: 11610.220703
+***********************************************
+Statistics for shot 0
+Value: 3.100000, frequency: 0.031250
+Value: 3.000000, frequency: 0.031250
+Value: 2.900000, frequency: 0.031250
+Value: 1.100000, frequency: 0.031250
+Value: 1.600000, frequency: 0.031250
+Value: 1.200000, frequency: 0.031250
+Value: 0.300000, frequency: 0.031250
+Value: 0.800000, frequency: 0.031250
+Value: 1.000000, frequency: 0.031250
+Value: 1.700000, frequency: 0.031250
+Value: 1.900000, frequency: 0.031250
+Value: 0.700000, frequency: 0.031250
+Value: 0.500000, frequency: 0.031250
+Value: 2.300000, frequency: 0.031250
+Value: 2.200000, frequency: 0.031250
+Value: 2.700000, frequency: 0.031250
+Value: 0.400000, frequency: 0.031250
+Value: 2.000000, frequency: 0.031250
+Value: 0.100000, frequency: 0.031250
+Value: 0.600000, frequency: 0.031250
+Value: 1.300000, frequency: 0.031250
+Value: 1.400000, frequency: 0.031250
+Value: 1.800000, frequency: 0.031250
+Value: 0.200000, frequency: 0.031250
+Value: 2.400000, frequency: 0.031250
+Value: 2.500000, frequency: 0.031250
+Value: 2.800000, frequency: 0.031250
+Value: 0.900000, frequency: 0.031250
+Value: 2.100000, frequency: 0.031250
+Value: 1.500000, frequency: 0.031250
+Value: 0.000000, frequency: 0.031250
+Value: 2.600000, frequency: 0.031250
+***********************************************
+***********************************************
+Statistics for shot 1
+Value: 3.100000, frequency: 0.031250
+Value: 3.000000, frequency: 0.031250
+Value: 2.900000, frequency: 0.031250
+Value: 1.100000, frequency: 0.031250
+Value: 1.600000, frequency: 0.031250
+Value: 1.200000, frequency: 0.031250
+Value: 0.300000, frequency: 0.031250
+Value: 0.800000, frequency: 0.031250
+Value: 1.000000, frequency: 0.031250
+Value: 1.700000, frequency: 0.031250
+Value: 1.900000, frequency: 0.031250
+Value: 0.700000, frequency: 0.031250
+Value: 0.500000, frequency: 0.031250
+Value: 2.300000, frequency: 0.031250
+Value: 2.200000, frequency: 0.031250
+Value: 2.700000, frequency: 0.031250
+Value: 0.400000, frequency: 0.031250
+Value: 2.000000, frequency: 0.031250
+Value: 0.100000, frequency: 0.031250
+Value: 0.600000, frequency: 0.031250
+Value: 1.300000, frequency: 0.031250
+Value: 1.400000, frequency: 0.031250
+Value: 1.800000, frequency: 0.031250
+Value: 0.200000, frequency: 0.031250
+Value: 2.400000, frequency: 0.031250
+Value: 2.500000, frequency: 0.031250
+Value: 2.800000, frequency: 0.031250
+Value: 0.900000, frequency: 0.031250
+Value: 2.100000, frequency: 0.031250
+Value: 1.500000, frequency: 0.031250
+Value: 0.000000, frequency: 0.031250
+Value: 2.600000, frequency: 0.031250
+***********************************************
+***********************************************
+Statistics for shot 2
+Value: 3.100000, frequency: 0.031250
+Value: 3.000000, frequency: 0.031250
+Value: 2.900000, frequency: 0.031250
+Value: 1.100000, frequency: 0.031250
+Value: 1.600000, frequency: 0.031250
+Value: 1.200000, frequency: 0.031250
+Value: 0.300000, frequency: 0.031250
+Value: 0.800000, frequency: 0.031250
+Value: 1.000000, frequency: 0.031250
+Value: 1.700000, frequency: 0.031250
+Value: 1.900000, frequency: 0.031250
+Value: 0.700000, frequency: 0.031250
+Value: 0.500000, frequency: 0.031250
+Value: 2.300000, frequency: 0.031250
+Value: 2.200000, frequency: 0.031250
+Value: 2.700000, frequency: 0.031250
+Value: 0.400000, frequency: 0.031250
+Value: 2.000000, frequency: 0.031250
+Value: 0.100000, frequency: 0.031250
+Value: 0.600000, frequency: 0.031250
+Value: 1.300000, frequency: 0.031250
+Value: 1.400000, frequency: 0.031250
+Value: 1.800000, frequency: 0.031250
+Value: 0.200000, frequency: 0.031250
+Value: 2.400000, frequency: 0.031250
+Value: 2.500000, frequency: 0.031250
+Value: 2.800000, frequency: 0.031250
+Value: 0.900000, frequency: 0.031250
+Value: 2.100000, frequency: 0.031250
+Value: 1.500000, frequency: 0.031250
+Value: 0.000000, frequency: 0.031250
+Value: 2.600000, frequency: 0.031250
+***********************************************
+***********************************************
+Statistics for shot 3
+Value: 3.100000, frequency: 0.031250
+Value: 3.000000, frequency: 0.031250
+Value: 2.900000, frequency: 0.031250
+Value: 1.100000, frequency: 0.031250
+Value: 1.600000, frequency: 0.031250
+Value: 1.200000, frequency: 0.031250
+Value: 0.300000, frequency: 0.031250
+Value: 0.800000, frequency: 0.031250
+Value: 1.000000, frequency: 0.031250
+Value: 1.700000, frequency: 0.031250
+Value: 1.900000, frequency: 0.031250
+Value: 0.700000, frequency: 0.031250
+Value: 0.500000, frequency: 0.031250
+Value: 2.300000, frequency: 0.031250
+Value: 2.200000, frequency: 0.031250
+Value: 2.700000, frequency: 0.031250
+Value: 0.400000, frequency: 0.031250
+Value: 2.000000, frequency: 0.031250
+Value: 0.100000, frequency: 0.031250
+Value: 0.600000, frequency: 0.031250
+Value: 1.300000, frequency: 0.031250
+Value: 1.400000, frequency: 0.031250
+Value: 1.800000, frequency: 0.031250
+Value: 0.200000, frequency: 0.031250
+Value: 2.400000, frequency: 0.031250
+Value: 2.500000, frequency: 0.031250
+Value: 2.800000, frequency: 0.031250
+Value: 0.900000, frequency: 0.031250
+Value: 2.100000, frequency: 0.031250
+Value: 1.500000, frequency: 0.031250
+Value: 0.000000, frequency: 0.031250
+Value: 2.600000, frequency: 0.031250
+***********************************************
+***********************************************
+Statistics for shot 4
+Value: 3.100000, frequency: 0.031250
+Value: 3.000000, frequency: 0.031250
+Value: 2.900000, frequency: 0.031250
+Value: 1.100000, frequency: 0.031250
+Value: 1.600000, frequency: 0.031250
+Value: 1.200000, frequency: 0.031250
+Value: 0.300000, frequency: 0.031250
+Value: 0.800000, frequency: 0.031250
+Value: 1.000000, frequency: 0.031250
+Value: 1.700000, frequency: 0.031250
+Value: 1.900000, frequency: 0.031250
+Value: 0.700000, frequency: 0.031250
+Value: 0.500000, frequency: 0.031250
+Value: 2.300000, frequency: 0.031250
+Value: 2.200000, frequency: 0.031250
+Value: 2.700000, frequency: 0.031250
+Value: 0.400000, frequency: 0.031250
+Value: 2.000000, frequency: 0.031250
+Value: 0.100000, frequency: 0.031250
+Value: 0.600000, frequency: 0.031250
+Value: 1.300000, frequency: 0.031250
+Value: 1.400000, frequency: 0.031250
+Value: 1.800000, frequency: 0.031250
+Value: 0.200000, frequency: 0.031250
+Value: 2.400000, frequency: 0.031250
+Value: 2.500000, frequency: 0.031250
+Value: 2.800000, frequency: 0.031250
+Value: 0.900000, frequency: 0.031250
+Value: 2.100000, frequency: 0.031250
+Value: 1.500000, frequency: 0.031250
+Value: 0.000000, frequency: 0.031250
+Value: 2.600000, frequency: 0.031250
+***********************************************
+***********************************************
+Statistics for shot 5
+Value: 3.100000, frequency: 0.031250
+Value: 3.000000, frequency: 0.031250
+Value: 2.900000, frequency: 0.031250
+Value: 1.100000, frequency: 0.031250
+Value: 1.600000, frequency: 0.031250
+Value: 1.200000, frequency: 0.031250
+Value: 0.300000, frequency: 0.031250
+Value: 0.800000, frequency: 0.031250
+Value: 1.000000, frequency: 0.031250
+Value: 1.700000, frequency: 0.031250
+Value: 1.900000, frequency: 0.031250
+Value: 0.700000, frequency: 0.031250
+Value: 0.500000, frequency: 0.031250
+Value: 2.300000, frequency: 0.031250
+Value: 2.200000, frequency: 0.031250
+Value: 2.700000, frequency: 0.031250
+Value: 0.400000, frequency: 0.031250
+Value: 2.000000, frequency: 0.031250
+Value: 0.100000, frequency: 0.031250
+Value: 0.600000, frequency: 0.031250
+Value: 1.300000, frequency: 0.031250
+Value: 1.400000, frequency: 0.031250
+Value: 1.800000, frequency: 0.031250
+Value: 0.200000, frequency: 0.031250
+Value: 2.400000, frequency: 0.031250
+Value: 2.500000, frequency: 0.031250
+Value: 2.800000, frequency: 0.031250
+Value: 0.900000, frequency: 0.031250
+Value: 2.100000, frequency: 0.031250
+Value: 1.500000, frequency: 0.031250
+Value: 0.000000, frequency: 0.031250
+Value: 2.600000, frequency: 0.031250
+***********************************************
+***********************************************
+Statistics for shot 6
+Value: 3.100000, frequency: 0.031250
+Value: 3.000000, frequency: 0.031250
+Value: 2.900000, frequency: 0.031250
+Value: 1.100000, frequency: 0.031250
+Value: 1.600000, frequency: 0.031250
+Value: 1.200000, frequency: 0.031250
+Value: 0.300000, frequency: 0.031250
+Value: 0.800000, frequency: 0.031250
+Value: 1.000000, frequency: 0.031250
+Value: 1.700000, frequency: 0.031250
+Value: 1.900000, frequency: 0.031250
+Value: 0.700000, frequency: 0.031250
+Value: 0.500000, frequency: 0.031250
+Value: 2.300000, frequency: 0.031250
+Value: 2.200000, frequency: 0.031250
+Value: 2.700000, frequency: 0.031250
+Value: 0.400000, frequency: 0.031250
+Value: 2.000000, frequency: 0.031250
+Value: 0.100000, frequency: 0.031250
+Value: 0.600000, frequency: 0.031250
+Value: 1.300000, frequency: 0.031250
+Value: 1.400000, frequency: 0.031250
+Value: 1.800000, frequency: 0.031250
+Value: 0.200000, frequency: 0.031250
+Value: 2.400000, frequency: 0.031250
+Value: 2.500000, frequency: 0.031250
+Value: 2.800000, frequency: 0.031250
+Value: 0.900000, frequency: 0.031250
+Value: 2.100000, frequency: 0.031250
+Value: 1.500000, frequency: 0.031250
+Value: 0.000000, frequency: 0.031250
+Value: 2.600000, frequency: 0.031250
+***********************************************
+***********************************************
+Statistics for shot 7
+Value: 3.100000, frequency: 0.031250
+Value: 3.000000, frequency: 0.031250
+Value: 2.900000, frequency: 0.031250
+Value: 1.100000, frequency: 0.031250
+Value: 1.600000, frequency: 0.031250
+Value: 1.200000, frequency: 0.031250
+Value: 0.300000, frequency: 0.031250
+Value: 0.800000, frequency: 0.031250
+Value: 1.000000, frequency: 0.031250
+Value: 1.700000, frequency: 0.031250
+Value: 1.900000, frequency: 0.031250
+Value: 0.700000, frequency: 0.031250
+Value: 0.500000, frequency: 0.031250
+Value: 2.300000, frequency: 0.031250
+Value: 2.200000, frequency: 0.031250
+Value: 2.700000, frequency: 0.031250
+Value: 0.400000, frequency: 0.031250
+Value: 2.000000, frequency: 0.031250
+Value: 0.100000, frequency: 0.031250
+Value: 0.600000, frequency: 0.031250
+Value: 1.300000, frequency: 0.031250
+Value: 1.400000, frequency: 0.031250
+Value: 1.800000, frequency: 0.031250
+Value: 0.200000, frequency: 0.031250
+Value: 2.400000, frequency: 0.031250
+Value: 2.500000, frequency: 0.031250
+Value: 2.800000, frequency: 0.031250
+Value: 0.900000, frequency: 0.031250
+Value: 2.100000, frequency: 0.031250
+Value: 1.500000, frequency: 0.031250
+Value: 0.000000, frequency: 0.031250
+Value: 2.600000, frequency: 0.031250
+***********************************************
+***********************************************
+Statistics for shot 8
+Value: 3.100000, frequency: 0.031250
+Value: 3.000000, frequency: 0.031250
+Value: 2.900000, frequency: 0.031250
+Value: 1.100000, frequency: 0.031250
+Value: 1.600000, frequency: 0.031250
+Value: 1.200000, frequency: 0.031250
+Value: 0.300000, frequency: 0.031250
+Value: 0.800000, frequency: 0.031250
+Value: 1.000000, frequency: 0.031250
+Value: 1.700000, frequency: 0.031250
+Value: 1.900000, frequency: 0.031250
+Value: 0.700000, frequency: 0.031250
+Value: 0.500000, frequency: 0.031250
+Value: 2.300000, frequency: 0.031250
+Value: 2.200000, frequency: 0.031250
+Value: 2.700000, frequency: 0.031250
+Value: 0.400000, frequency: 0.031250
+Value: 2.000000, frequency: 0.031250
+Value: 0.100000, frequency: 0.031250
+Value: 0.600000, frequency: 0.031250
+Value: 1.300000, frequency: 0.031250
+Value: 1.400000, frequency: 0.031250
+Value: 1.800000, frequency: 0.031250
+Value: 0.200000, frequency: 0.031250
+Value: 2.400000, frequency: 0.031250
+Value: 2.500000, frequency: 0.031250
+Value: 2.800000, frequency: 0.031250
+Value: 0.900000, frequency: 0.031250
+Value: 2.100000, frequency: 0.031250
+Value: 1.500000, frequency: 0.031250
+Value: 0.000000, frequency: 0.031250
+Value: 2.600000, frequency: 0.031250
+***********************************************
+***********************************************
+Statistics for shot 9
+Value: 3.100000, frequency: 0.031250
+Value: 3.000000, frequency: 0.031250
+Value: 2.900000, frequency: 0.031250
+Value: 1.100000, frequency: 0.031250
+Value: 1.600000, frequency: 0.031250
+Value: 1.200000, frequency: 0.031250
+Value: 0.300000, frequency: 0.031250
+Value: 0.800000, frequency: 0.031250
+Value: 1.000000, frequency: 0.031250
+Value: 1.700000, frequency: 0.031250
+Value: 1.900000, frequency: 0.031250
+Value: 0.700000, frequency: 0.031250
+Value: 0.500000, frequency: 0.031250
+Value: 2.300000, frequency: 0.031250
+Value: 2.200000, frequency: 0.031250
+Value: 2.700000, frequency: 0.031250
+Value: 0.400000, frequency: 0.031250
+Value: 2.000000, frequency: 0.031250
+Value: 0.100000, frequency: 0.031250
+Value: 0.600000, frequency: 0.031250
+Value: 1.300000, frequency: 0.031250
+Value: 1.400000, frequency: 0.031250
+Value: 1.800000, frequency: 0.031250
+Value: 0.200000, frequency: 0.031250
+Value: 2.400000, frequency: 0.031250
+Value: 2.500000, frequency: 0.031250
+Value: 2.800000, frequency: 0.031250
+Value: 0.900000, frequency: 0.031250
+Value: 2.100000, frequency: 0.031250
+Value: 1.500000, frequency: 0.031250
+Value: 0.000000, frequency: 0.031250
+Value: 2.600000, frequency: 0.031250
+***********************************************

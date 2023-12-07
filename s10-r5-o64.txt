@@ -1,0 +1,77 @@
+Distribution 0: 0.000000
+Distribution 1: 0.100000
+Distribution 2: 0.200000
+Distribution 3: 0.300000
+Distribution 4: 0.400000
+Distribution 5: 0.500000
+Distribution 6: 0.600000
+Distribution 7: 0.700000
+Distribution 8: 0.800000
+Distribution 9: 0.900000
+Distribution 10: 1.000000
+Distribution 11: 1.100000
+Distribution 12: 1.200000
+Distribution 13: 1.300000
+Distribution 14: 1.400000
+Distribution 15: 1.500000
+Distribution 16: 1.600000
+Distribution 17: 1.700000
+Distribution 18: 1.800000
+Distribution 19: 1.900000
+Distribution 20: 2.000000
+Distribution 21: 2.100000
+Distribution 22: 2.200000
+Distribution 23: 2.300000
+Distribution 24: 2.400000
+Distribution 25: 2.500000
+Distribution 26: 2.600000
+Distribution 27: 2.700000
+Distribution 28: 2.800000
+Distribution 29: 2.900000
+Distribution 30: 3.000000
+Distribution 31: 3.100000
+Distribution 32: 3.200000
+Distribution 33: 3.300000
+Distribution 34: 3.400000
+Distribution 35: 3.500000
+Distribution 36: 3.600000
+Distribution 37: 3.700000
+Distribution 38: 3.800000
+Distribution 39: 3.900000
+Distribution 40: 4.000000
+Distribution 41: 4.100000
+Distribution 42: 4.200000
+Distribution 43: 4.300000
+Distribution 44: 4.400000
+Distribution 45: 4.500000
+Distribution 46: 4.600000
+Distribution 47: 4.700000
+Distribution 48: 4.800000
+Distribution 49: 4.900000
+Distribution 50: 5.000000
+Distribution 51: 5.100000
+Distribution 52: 5.200000
+Distribution 53: 5.300000
+Distribution 54: 5.400000
+Distribution 55: 5.500000
+Distribution 56: 5.600000
+Distribution 57: 5.700000
+Distribution 58: 5.800000
+Distribution 59: 5.900000
+Distribution 60: 6.000000
+Distribution 61: 6.100000
+Distribution 62: 6.200000
+Distribution 63: 6.300000
+Max threads per block: 1024
+Max block dimensions: (1024, 1024, 64)
+Max grid dimensions: (2147483647, 65535, 65535)
+Before allocating, memory info:
+Free memory: 11588861952
+Total memory: 12878086144
+Preparing memory space
+Number of shots: 10
+Number of parameters: 10
+Number of random parameters: 5
+Number of possible outcomes: 64
+Maximum number of states: 1073741824
+Error allocating memory for initial states - out of memory

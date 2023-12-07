@@ -14,7 +14,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(SOURCE_FILES
     multi-shot.cu)
 
-set(CMAKE_CUDA_FLAGS_DEBUG "-G -g")
+set(CMAKE_CUDA_FLAGS_DEBUG "-g -G")
 
 
 add_executable(multi-shot ${SOURCE_FILES})

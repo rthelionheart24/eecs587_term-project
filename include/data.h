@@ -19,12 +19,4 @@ typedef struct BatchedTask {
 
 } BatchedTask;
 
-
-typedef struct Task {
-  std::vector<Parameter> params;
-  State state;
-  uint64_t num_shots;
-
-} Task;
-
 #endif

@@ -18,13 +18,13 @@
 
 __managed__ uint64_t STATE_COUNTER = 1;
 
-__managed__ float DISTRIBUTION[40];
-__managed__ int RAND_POSSIBLE_OUTCOME = 40;
-__managed__ int NUM_PARAMETERS = -1;
+__managed__ float DISTRIBUTION[64];
+__managed__ int RAND_POSSIBLE_OUTCOME = 64;
 __managed__ int NUM_RANDOM_PARAMETERS = 5;
-__managed__ int NUM_SHOTS = 4;
+__managed__ int NUM_PARAMETERS = -1;
+__managed__ int NUM_SHOTS = 10;
 
-__managed__ Parameter **params;
+__managed__ Parameter **params; 
 
 __global__ void run(State *states, uint64_t num_shots,
                     uint64_t num_blocks_per_shot, int param_idx) {
@@ -84,7 +84,6 @@ __global__ void run_random(State *states, uint64_t num_shots,
     //        global_idx, state_idx, i);
     states[new_idx].a = DISTRIBUTION[i];
   }
-
 }
 
 void memoryInfo() {
@@ -108,32 +107,29 @@ int main(int argc, char **argv) {
   BatchedTask task;
   task.num_shots = NUM_SHOTS;
 
-  // task.params.push_back(
-  //     {Parameter::ID, Parameter::RAND_OP, Parameter::Y_OP, Parameter::X_OP,
-  //      Parameter::RAND_OP, Parameter::RAND_OP, Parameter::X_OP,
-  //      Parameter::RAND_OP, Parameter::RAND_OP, Parameter::Z_OP});
-  // task.params.push_back({Parameter::ID, Parameter::RAND_OP, Parameter::X_OP,
-  //                        Parameter::Y_OP, Parameter::RAND_OP,
-  //                        Parameter::X_OP, Parameter::RAND_OP,
-  //                        Parameter::RAND_OP, Parameter::RAND_OP,
-  //                        Parameter::Y_OP});
-  // task.params.push_back({Parameter::ID, Parameter::RAND_OP, Parameter::X_OP,
-  //                        Parameter::Y_OP, Parameter::RAND_OP,
-  //                        Parameter::X_OP, Parameter::RAND_OP,
-  //                        Parameter::RAND_OP, Parameter::RAND_OP,
-  //                        Parameter::Z_OP});
-  // task.params.push_back(
-  //     {Parameter::ID, Parameter::RAND_OP, Parameter::X_OP,
-  //     Parameter::RAND_OP,
-  //      Parameter::X_OP, Parameter::RAND_OP, Parameter::X_OP,
-  //      Parameter::RAND_OP, Parameter::RAND_OP, Parameter::ID});
-
   for (int i = 0; i < task.num_shots; i++) {
     task.params.push_back(
         {Parameter::ID, Parameter::RAND_OP, Parameter::X_OP, Parameter::RAND_OP,
          Parameter::X_OP, Parameter::RAND_OP, Parameter::X_OP,
          Parameter::RAND_OP, Parameter::RAND_OP, Parameter::ID});
-  }
+    }
+
+  // task.params.push_back(
+  //     {Parameter::ID, Parameter::RAND_OP, Parameter::Y_OP, Parameter::X_OP,
+  //      Parameter::RAND_OP, Parameter::RAND_OP, Parameter::X_OP,
+  //      Parameter::RAND_OP, Parameter::RAND_OP, Parameter::Z_OP});
+  // task.params.push_back({Parameter::ID, Parameter::RAND_OP, Parameter::X_OP,
+  //                        Parameter::Y_OP, Parameter::RAND_OP, Parameter::X_OP,
+  //                        Parameter::RAND_OP, Parameter::RAND_OP,
+  //                        Parameter::RAND_OP, Parameter::Y_OP});
+  // task.params.push_back({Parameter::ID, Parameter::RAND_OP, Parameter::X_OP,
+  //                        Parameter::Y_OP, Parameter::RAND_OP, Parameter::X_OP,
+  //                        Parameter::RAND_OP, Parameter::RAND_OP,
+  //                        Parameter::RAND_OP, Parameter::Z_OP});
+  // task.params.push_back(
+  //     {Parameter::ID, Parameter::RAND_OP, Parameter::X_OP, Parameter::RAND_OP,
+  //      Parameter::X_OP, Parameter::RAND_OP, Parameter::X_OP, Parameter::RAND_OP,
+  //      Parameter::RAND_OP, Parameter::ID});
 
   // =================================================================================================================
   // Check for CUDA device
@@ -366,7 +362,6 @@ int main(int argc, char **argv) {
         printf("CUDA Error: %s\n", cudaGetErrorString(err));
       }
 
-      
       STATE_COUNTER *= RAND_POSSIBLE_OUTCOME;
     } else {
       // printf("Launching kernel\n");
