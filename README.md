@@ -1,14 +1,14 @@
 # Batched Quantum Circuit Simulation on GPUs
 
-This project is a CUDA-based quantum simulation that performs batched quantum experiments on a GPU in parallel. It is designed to simulate the bahevior of multiple potentially different quantum circuit.
+This project is a CUDA-based quantum simulation that performs batched quantum experiments on a GPU in parallel. It is designed to simulate the behavior of multiple potentially different quantum circuit.
 
 ## Introduction
 
-Quantum computers are devices that can perform quantum computations by exploting the quantum mechanical phenomena of superposition and entanglement. Quantum computers are expected to be able to solve certain problems much faster than classical computers. However, the development of quantum computers is still in its infancy. Currently, quantum computers are still too small to be useful for practical applications. Therefore, quantum simulation is an important tool for studying quantum algorithms and quantum computers.
+Quantum computers are devices that can perform quantum computations by exploiting the quantum mechanical phenomena of superposition and entanglement. Quantum computers are expected to be able to solve certain problems much faster than classical computers. However, the development of quantum computers is still in its infancy. Currently, quantum computers are still too small to be useful for practical applications. Therefore, quantum simulation is an important tool for studying quantum algorithms and quantum computers.
 
 ### Status-quo of quantum simulation
 
-Currently, there are a few ways to simulate a quantum system such as state vector, tensor network, density matrix, etc. Nevertheless, most methods use the same model: the operation of the quantum system is represented by an initial state running through a series of quantum operators. Since this is similar to the circuit model in classical computers, where an electron runs through a series of logic gates, we can use the circuit model to simulate quantum systems. As shown by figure 1, each circuit will run through a series of quantum operators, and the result will be the final state of the quantum system. THis project will also use the circuit model to simulate quantum systems.
+Currently, there are a few ways to simulate a quantum system such as state vector, tensor network, density matrix, etc. Nevertheless, most methods use the same model: the operation of the quantum system is represented by an initial state running through a series of quantum operators. Since this is similar to the circuit model in classical computers, where an electrical signal runs through a series of logic gates, we can use the circuit model to simulate quantum systems. As shown by figure 1, each circuit will run through a series of quantum operators, and the result will be the final state of the quantum system. This project will also use the circuit model to simulate quantum systems.
 
 ![Alt text](circuit.png)
 *Figure 1: The circuit model of quantum simulation*
@@ -25,9 +25,9 @@ Many frameworks adapt the generalized circuit model to simulate quantum systems.
 ![Alt text](batched-model.png)
 *Figure 3: Batched generalized model of quantum circuit*
 
-Our first goal would be to perform batched quantum experiments on GPU, where the batch could contains quantum circuits of different number of gates. Then, for each shot, we would like it to run through their respective quantum circuits and perform shot-branching for states so that we can obtain a final result in the form of a historgram of the frequencies of different possible states. 
+Our first goal would be to perform batched quantum experiments on GPU as shown by figure 3, where the batch could contain quantum circuits of different number of gates. Then, for each shot, we would like it to run through their respective quantum circuits and perform shot-branching for states to obtain a final result in the form of a historgram of the frequencies of different possible states. 
 
-However, it is challenging to design a batched quantum simulation that can efficiently handle different quantum circuits. First, different number of quantum operations will result in some circuit finishing later than others, thereby contributing negatively to GPU's efficiency. Furthermore, besides the definite quantum operators that are known before the simulation, there are also quantum operators that are determined during the simulation. For example, the measurement operator is determined by the measurement result of the previous quantum operator, and operators that causes random changes to the value is also present to model sent noise inside the quantum system. Therefore, it is challenging to design a batched quantum simulation that can handle quantum operators that are determined in runtime.
+However, it is challenging to design a batched quantum simulation that can efficiently handle different quantum circuits. First, different number of quantum operations will result in some circuit finishing later than others, thereby contributing negatively to GPU's efficiency. Furthermore, besides the definite quantum operators that are known before the simulation, there are also quantum operators that are determined during the simulation. For example, the measurement operator is determined by the measurement result of the previous quantum operator, and operators that causes random changes to the value is also present to model inherent noise inside the quantum system. Therefore, it is challenging to design a batched quantum simulation that can handle quantum operators that are determined in runtime.
 
 Another challenge is how to implement shot-branching. Shot-branching is a technique that allows the state to branch into multiple states, each of which is a copy of the original state, when a non-deterministic operator such as measurement or noise operator is encountered. This is useful for simulating quantum systems that are entangled with each other. However, it is challenging to implement shot-branching in a batched quantum simulation because the number of states can vary for each quantum circuit in the batched task depending on how many non-deterministic operations have been executed at a given moment. This is the main challenge of this project.
 
@@ -36,18 +36,18 @@ Another challenge is how to implement shot-branching. Shot-branching is a techni
 ### Design
 
 ![Alt text](approach-1.png)
-*Approach 1*
+*Figure 4: Approach 1*
 
 As shown by figure 4, one way to parallelize the problem is to allocate blocks for each quantum circuit in the batched task; we will refer to it by "shot" for the rest of the report. 
 
 ![Alt text](approach-2.png)
-*Approach 2*
+*Figure 5: Approach 2*
 
 The other way is to arrange it so that a contiguous block of threads contain all shots in the respective order as shown by figure 5. Shots that are batched together this way have the same states.
 
-In theory, appraoch 2 has more redundancy that approach 1. For example, imagine there are 4 shots running together and at a certain index, 1 of them has a non-deterministic operator and need to branch on-the-fly while the others have deterministic operators. Under this circumstance, we need to allocate states for all shots because of the way we batch them together in memory. For this reason, to reduce memory usage, we need to implement synchroization techniques to ensure that all shots have the same type of oeprators at the same time(all deterministic and no on-the-fly branching or all non-deterministic and branching on-the-fly).
+In theory, approach 2 has more redundancy that approach 1. For example, imagine there are 4 shots running together and at a certain index, 1 of them has a non-deterministic operator and need to branch on-the-fly while the others have deterministic operators. Under this circumstance, we need to allocate states for all shots because of the way we batch them together in memory. For this reason, to reduce memory usage, we need to implement synchroization techniques to ensure that all shots have the same type of operators at the same time(all deterministic and no on-the-fly branching or all non-deterministic and branching on-the-fly).
 
-Regarding appraoch 1, the GPU would also benefit from synchronization of operators to maximize bandwith usage. Nevertheless, the way we parallelize the problem makes it also possible to implement a synchronization-free version of the algorithm by having an array to track the number of states for each shot. It is actually a quite interesting idea to explore because it not only applies to quantum simulation on a single node but can be generalized to distributed systems. However, we will not explore this idea in this project and instead focus on the synchronization version of the algorithm.
+Regarding approach 1, the GPU would also benefit from synchronization of operators to maximize bandwidth usage. Nevertheless, the way we parallelize the problem makes it also possible to implement a synchronization-free version of the algorithm by having an array to track the number of states for each shot. It is actually a quite interesting idea to explore because it not only applies to quantum simulation on a single node but can be generalized to distributed systems. However, we will not explore this idea in this project and instead focus on the synchronization version of the algorithm.
 
 
 The first step is to add identity operators to smaller circuits so that all circuits have the same number of parameters. This is necessary because we want all threads to finish execution at the same time to avoid thread divergence. Then, we launch the kernel function that simulates the quantum circuit. Initially, there is a shared state for each shot, which is placed at the head of the memory asssigned to each shot. When a deterministic quantum operator is encountered, all states in that shot are transformed with no additional states generated. However, whenever a non-deterministic operator is encountered, the state will branch into multiple states, each of which is a copy of the original state. The number of states generated is determined by the number of possible outcomes of the non-deterministic operator. For example, suppose that the random operator has 4 possible states as outcomes, $\set{b, c, d, e}$, then we will add 4 states to the shot, each of them in one of the possible outcome states. There is a variable $STATE\_COUNTER$ that keeps track of the number of states each shot.
@@ -59,7 +59,7 @@ As discussed previously, synchronization is needed when the types of gate encoun
 
 # Implementation
 
-Given the design, we need to think carefully about how to sychronize the quantum circuits, and we are making a few key assumptions and simplifications here:
+Given the design, we need to think carefully about how to synchronize the quantum circuits, and we are making a few key assumptions and simplifications here:
 
 1. We assume that we know the number of shots within each batched task; this is needed to allocate memory for each shot.
 2. We assume that we know the number of non-deterministic operators in each shot. Without loss of generality, we made no assumption of the type or arragement of quantum operators. This is also needed for memory allocation.
@@ -108,7 +108,7 @@ The memory allocation of quantum circuit is done in the following steps. These a
 Unified memory is used for a few variables due to their nature, either need to be accessed by both host and device or need to be accessed by multiple kernels. These variables are:
 1. STATE_COUNTER: the number of states for each shot, which is identical using our approach.
 2. params: the parameters of each shot.
-3. DISTRIBUTIOBN[] and DISTRIBUTION_SIZE: the distribution model of the non-deterministic operator.
+3. DISTRIBUTION[] and DISTRIBUTION_SIZE: the distribution model of the non-deterministic operator.
 
 
 ## Workflow
@@ -189,26 +189,26 @@ Let $M$ be the maximum number of states, $R$ be the number of random operators, 
 $$ M = O^R * S $$
 
 ![Alt text](num_outcomesVSruntime.png)
-*Runtime vs Input Size (Varying Number of possible outcomes for non-deterministic operators) O = [1,2,3,4,5,6,7,8,9,10], R = 5, S = 10*
+*Figure 7: Runtime vs Input Size (Varying Number of possible outcomes for non-deterministic operators) O = [1,2,3,4,5,6,7,8,9,10], R = 5, S = 10*
 
 Linearly increasing the number of possible outcomes for the non-deterministic operators have a polynomial effect on the input size. As we can see in the figure, as we increase the number of possible outcome linearly, the runtime increases in a manner that is slower than the polynomial function $x^5$. This indicates that we are achieving super-linear speedup.
 
 
 ![Alt text](num_random_varsVSruntime.png)
-*Runtime vs Input Size (Varying Number of random operators), O = 8, R = 5, S = [1,2,3,4,5,6,7,8,9]*
+*Figure 8: Runtime vs Input Size (Varying Number of random operators), O = 8, R = 5, S = [1,2,3,4,5,6,7,8,9]*
 
-Linearly increasing the number of random operators have an exponential impact on the input size. As we can see in the figure, as the input size increasese exponentially, the runtime increases sub-exponentially in the beginning and eventually increases exponentially. This indicates that we are achieving super-linear speedup. One possible reason that the speedup slows down when scaling R is that the bandwith usage of the GPU is saturated.
+Linearly increasing the number of random operators have an exponential impact on the input size. As we can see in the figure, as the input size increasese exponentially, the runtime increases sub-exponentially in the beginning and eventually increases exponentially. This indicates that we are achieving super-linear speedup. One possible reason that the speedup slows down when scaling R is that the bandwidth usage of the GPU is saturated.
 
 
 ![Alt text](num_shotsVSruntime.png)
-*Runtime vs Input Size (Varying Number of shots), O = 8, R = [1,2,3,4,5,6,7,8,9], S = 4*
+*Figure 9: Runtime vs Input Size (Varying Number of shots), O = 8, R = [1,2,3,4,5,6,7,8,9], S = 4*
 
-Linearly increasing the number of shots have a linear impact on the input size. As we can see in the figure, as the input size increases linearly, the runtime increases linearly as well. This indicates that we are achieving linear speedup. One possible reason that the speedup isn't super-linear when scaling S is that the bandwith usage of the GPU isn't utilized to its full potential given the way we allocate different shots in the memory. The way we organize the memory results in different shots being very far away from each other and the bandwidth of GPU isn't big enough to compensate for the latency of accessing memory that is far away. The potential solution is to use approach 2, where shots at the same states are contiguous in memory. However, as soon as the batch size supercedes the warp size, we will witness slowing speedup due to memory access pattern. 
+Linearly increasing the number of shots have a linear impact on the input size. As we can see in the figure, as the input size increases linearly, the runtime increases linearly as well. This indicates that we are achieving linear speedup. One possible reason that the speedup isn't super-linear when scaling S is that the bandwidth usage of the GPU isn't utilized to its full potential given the way we allocate different shots in the memory. The way we organize the memory results in different shots being very far away from each other and the bandwidth of GPU isn't big enough to compensate for the latency of accessing memory that is far away. The potential solution is to use approach 2, where shots at the same states are contiguous in memory. However, as soon as the batch size supercedes the warp size, we will witness slowing speedup due to memory access pattern. 
 
 
 # Conclusion
 
-Overall, we are able to achieve super-linear speedup. We are only able to achieve linear speedup in the case where we scale the number of shots per batch. Our design put different shows far away from each other in memory, which results in multiple access to memory when applying the same operator to all shots. Approach 1 does a better job here in theory because shots are packed together, so fewer memory access is needed to apply the same operator to all shots. Neverhteless, approach 2 ensures better speedup within each shot since states of the same shot are contiguous in memory.
+Overall, we are able to achieve super-linear speedup. We are only able to achieve linear speedup in the case where we scale the number of shots per batch. Our design put different shots far away from each other in memory, which results in multiple access to memory when applying the same operator to all shots. Approach 1 does a better job here in theory because shots are packed together, so fewer memory access is needed to apply the same operator to all shots. Nevertheless, approach 2 ensures better speedup within each shot since states of the same shot are contiguous in memory.
 
 
 # Future Work and Thoughts
