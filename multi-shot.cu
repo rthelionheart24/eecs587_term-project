@@ -18,13 +18,13 @@
 
 __managed__ uint64_t STATE_COUNTER = 1;
 
-__managed__ float DISTRIBUTION[64];
-__managed__ int RAND_POSSIBLE_OUTCOME = 64;
+__managed__ float DISTRIBUTION[8];
+__managed__ int RAND_POSSIBLE_OUTCOME = 8;
 __managed__ int NUM_RANDOM_PARAMETERS = 5;
-__managed__ int NUM_PARAMETERS = -1;
-__managed__ int NUM_SHOTS = 10;
+__managed__ int NUM_PARAMETERS = 10;
+__managed__ int NUM_SHOTS = 100000;
 
-__managed__ Parameter **params; 
+__managed__ Parameter **params;
 
 __global__ void run(State *states, uint64_t num_shots,
                     uint64_t num_blocks_per_shot, int param_idx) {
@@ -108,28 +108,31 @@ int main(int argc, char **argv) {
   task.num_shots = NUM_SHOTS;
 
   for (int i = 0; i < task.num_shots; i++) {
-    task.params.push_back(
-        {Parameter::ID, Parameter::RAND_OP, Parameter::X_OP, Parameter::RAND_OP,
-         Parameter::X_OP, Parameter::RAND_OP, Parameter::X_OP,
-         Parameter::RAND_OP, Parameter::RAND_OP, Parameter::ID});
-    }
+    task.params.push_back({Parameter::RAND_OP, Parameter::RAND_OP,
+                           Parameter::RAND_OP, Parameter::RAND_OP,
+                           Parameter::RAND_OP, Parameter::Z_OP, Parameter::Z_OP,
+                           Parameter::Z_OP, Parameter::Z_OP, Parameter::Z_OP});
+  }
 
   // task.params.push_back(
   //     {Parameter::ID, Parameter::RAND_OP, Parameter::Y_OP, Parameter::X_OP,
   //      Parameter::RAND_OP, Parameter::RAND_OP, Parameter::X_OP,
   //      Parameter::RAND_OP, Parameter::RAND_OP, Parameter::Z_OP});
   // task.params.push_back({Parameter::ID, Parameter::RAND_OP, Parameter::X_OP,
-  //                        Parameter::Y_OP, Parameter::RAND_OP, Parameter::X_OP,
+  //                        Parameter::Y_OP, Parameter::RAND_OP,
+  //                        Parameter::X_OP, Parameter::RAND_OP,
   //                        Parameter::RAND_OP, Parameter::RAND_OP,
-  //                        Parameter::RAND_OP, Parameter::Y_OP});
+  //                        Parameter::Y_OP});
   // task.params.push_back({Parameter::ID, Parameter::RAND_OP, Parameter::X_OP,
-  //                        Parameter::Y_OP, Parameter::RAND_OP, Parameter::X_OP,
+  //                        Parameter::Y_OP, Parameter::RAND_OP,
+  //                        Parameter::X_OP, Parameter::RAND_OP,
   //                        Parameter::RAND_OP, Parameter::RAND_OP,
-  //                        Parameter::RAND_OP, Parameter::Z_OP});
+  //                        Parameter::Z_OP});
   // task.params.push_back(
-  //     {Parameter::ID, Parameter::RAND_OP, Parameter::X_OP, Parameter::RAND_OP,
-  //      Parameter::X_OP, Parameter::RAND_OP, Parameter::X_OP, Parameter::RAND_OP,
-  //      Parameter::RAND_OP, Parameter::ID});
+  //     {Parameter::ID, Parameter::RAND_OP, Parameter::X_OP,
+  //     Parameter::RAND_OP,
+  //      Parameter::X_OP, Parameter::RAND_OP, Parameter::X_OP,
+  //      Parameter::RAND_OP, Parameter::RAND_OP, Parameter::ID});
 
   // =================================================================================================================
   // Check for CUDA device
@@ -167,15 +170,15 @@ int main(int argc, char **argv) {
 
   printf("Preparing memory space\n");
 
-  for (int e = 0; e < task.num_shots; e++) {
-    NUM_PARAMETERS = std::max(NUM_PARAMETERS, (int)task.params[e].size());
-  }
+  // for (int e = 0; e < task.num_shots; e++) {
+  //   NUM_PARAMETERS = std::max(NUM_PARAMETERS, (int)task.params[e].size());
+  // }
 
-  for (int e = 0; e < task.num_shots; e++) {
-    for (int i = task.params[e].size(); i < NUM_PARAMETERS; i++) {
-      task.params[e].push_back(Parameter::ID);
-    }
-  }
+  // for (int e = 0; e < task.num_shots; e++) {
+  //   for (int i = task.params[e].size(); i < NUM_PARAMETERS; i++) {
+  //     task.params[e].push_back(Parameter::ID);
+  //   }
+  // }
 
   printf("Number of shots: %lu\n", task.num_shots);
   printf("Number of parameters: %d\n", NUM_PARAMETERS);
@@ -398,7 +401,7 @@ int main(int argc, char **argv) {
   std::vector<std::unordered_map<float, uint64_t>> stats(task.num_shots);
 
   for (int e = 0; e < task.num_shots; e++) {
-    for (int i = 0; i < MAXIMUM; i++) {
+    for (int i = 0; i < STATE_COUNTER; i++) {
       // printf("HOST: Shot %d, state %d: %f\n", e, i, d_states[e][i].a);
       stats[e][d_states[e * num_blocks_per_shot * 1024 + i].a]++;
     }

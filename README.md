@@ -10,19 +10,19 @@ Quantum computers are devices that can perform quantum computations by exploting
 
 Currently, there are a few ways to simulate a quantum system such as state vector, tensor network, density matrix, etc. Nevertheless, most methods use the same model: the operation of the quantum system is represented by an initial state running through a series of quantum operators. Since this is similar to the circuit model in classical computers, where an electron runs through a series of logic gates, we can use the circuit model to simulate quantum systems. As shown by figure 1, each circuit will run through a series of quantum operators, and the result will be the final state of the quantum system. THis project will also use the circuit model to simulate quantum systems.
 
-![Alt text](figure-1.png)
+![Alt text](circuit.png)
 *Figure 1: The circuit model of quantum simulation*
 
 The state of a quantum system can be represented by a vector of complex numbers, a tensor node, a density matrix, etc, depending on the simulation methods. Nevertheless, no matter what method is used, the quantum states and operations on them are in a Hilbert space and can be represented by a matrix. Therefore, it is possible to design a simplified yet generalized model for quantum simulation by abstracting the state, no matter the data size of data structure, into a value, and abstracting the quantum operator into a function that transforms the state. As shown by figure 2, the quantum circuit model can be generalized as a series of quantum operators that transform the state of the quantum system.
 
-![Alt text](figure-2.png)
+![Alt text](model.png)
 *Figure 2: Generalized model of quantum circuit*
 
 Many frameworks adapt the generalized circuit model to simulate quantum systems. For example, QuEST, Qiskit, and Cuquantum use the circuit model to simulate quantum systems. These frameworks supports a variety of architectures including GPU. However, the GPU support is limited to single-shot quantum experiments, meaning that for each run of the quantum circuit, the framework will launch a new GPU kernel to simulate the quantum circuit. This is inefficient because the overhead of launching a GPU kernel dominates when the circuit is small. Therefore, this project aims to improve the efficiency of quantum simulation on GPUs by improving shot-wise parallelism of a batch of quantum circuit on a single GPU kernel.
 
 ## Approach
 
-![Alt text](figure-3.png)
+![Alt text](batched-model.png)
 *Figure 3: Batched generalized model of quantum circuit*
 
 Our first goal would be to perform batched quantum experiments on GPU, where the batch could contains quantum circuits of different number of gates. Then, for each shot, we would like it to run through their respective quantum circuits and perform shot-branching for states so that we can obtain a final result in the form of a historgram of the frequencies of different possible states. 
@@ -49,17 +49,13 @@ In theory, appraoch 2 has more redundancy that approach 1. For example, imagine 
 
 Regarding appraoch 1, the GPU would also benefit from synchronization of operators to maximize bandwith usage. Nevertheless, the way we parallelize the problem makes it also possible to implement a synchronization-free version of the algorithm by having an array to track the number of states for each shot. It is actually a quite interesting idea to explore because it not only applies to quantum simulation on a single node but can be generalized to distributed systems. However, we will not explore this idea in this project and instead focus on the synchronization version of the algorithm.
 
-![Alt text](figure-5.jpeg)
-*Figure 5: Encountering a non-deterministic operator*
 
 The first step is to add identity operators to smaller circuits so that all circuits have the same number of parameters. This is necessary because we want all threads to finish execution at the same time to avoid thread divergence. Then, we launch the kernel function that simulates the quantum circuit. Initially, there is a shared state for each shot, which is placed at the head of the memory asssigned to each shot. When a deterministic quantum operator is encountered, all states in that shot are transformed with no additional states generated. However, whenever a non-deterministic operator is encountered, the state will branch into multiple states, each of which is a copy of the original state. The number of states generated is determined by the number of possible outcomes of the non-deterministic operator. For example, suppose that the random operator has 4 possible states as outcomes, $\set{b, c, d, e}$, then we will add 4 states to the shot, each of them in one of the possible outcome states. There is a variable $STATE\_COUNTER$ that keeps track of the number of states each shot.
 
 As discussed previously, synchronization is needed when the types of gate encounterd by each shot is different. One way is to insert identity operation to shots that have a non-deterministic operator and thereby postponing the branching of states. This synchronization needs to be performed until all shots have non-deterministic operators, and we also need to insert identity operators to the end of shots with deterministic operators to ensure the uniformity of our data. Figure 6 is an illustration of this method.
 
-![Alt text](figure-6.jpeg)
+![Alt text](random-process.jpeg)
 *Figure 6: Synchronization by inserting identity operators*
-
-
 
 # Implementation
 
@@ -186,9 +182,42 @@ Shot 3: {ID, RAND_OP, X_OP, RAND_OP, X_OP, RAND_OP, X_OP, RAND_OP, RAND_OP, ID};
 
 ## Performance Analysis
 
+The maximum number of states, which is identical to the input size because we every thread processes one state, can be calculated by the following formula:
 
-### Batch Sizes
+Let $M$ be the maximum number of states, $R$ be the number of random operators, $O$ be the number of possible outcomes for the random operators, and $S$ be the number of shots. Then, we have:
 
+$$ M = O^R * S $$
+
+![Alt text](num_outcomesVSruntime.png)
+*Runtime vs Input Size (Varying Number of possible outcomes for non-deterministic operators) O = [1,2,3,4,5,6,7,8,9,10], R = 5, S = 10*
+
+Linearly increasing the number of possible outcomes for the non-deterministic operators have a polynomial effect on the input size. As we can see in the figure, as we increase the number of possible outcome linearly, the runtime increases in a manner that is slower than the polynomial function $x^5$. This indicates that we are achieving super-linear speedup.
+
+
+![Alt text](num_random_varsVSruntime.png)
+*Runtime vs Input Size (Varying Number of random operators), O = 8, R = 5, S = [1,2,3,4,5,6,7,8,9]*
+
+Linearly increasing the number of random operators have an exponential impact on the input size. As we can see in the figure, as the input size increasese exponentially, the runtime increases sub-exponentially in the beginning and eventually increases exponentially. This indicates that we are achieving super-linear speedup. One possible reason that the speedup slows down when scaling R is that the bandwith usage of the GPU is saturated.
+
+
+![Alt text](num_shotsVSruntime.png)
+*Runtime vs Input Size (Varying Number of shots), O = 8, R = [1,2,3,4,5,6,7,8,9], S = 4*
+
+Linearly increasing the number of shots have a linear impact on the input size. As we can see in the figure, as the input size increases linearly, the runtime increases linearly as well. This indicates that we are achieving linear speedup. One possible reason that the speedup isn't super-linear when scaling S is that the bandwith usage of the GPU isn't utilized to its full potential given the way we allocate different shots in the memory. The way we organize the memory results in different shots being very far away from each other and the bandwidth of GPU isn't big enough to compensate for the latency of accessing memory that is far away. The potential solution is to use approach 2, where shots at the same states are contiguous in memory. However, as soon as the batch size supercedes the warp size, we will witness slowing speedup due to memory access pattern. 
+
+
+# Conclusion
+
+Overall, we are able to achieve super-linear speedup. We are only able to achieve linear speedup in the case where we scale the number of shots per batch. Our design put different shows far away from each other in memory, which results in multiple access to memory when applying the same operator to all shots. Approach 1 does a better job here in theory because shots are packed together, so fewer memory access is needed to apply the same operator to all shots. Neverhteless, approach 2 ensures better speedup within each shot since states of the same shot are contiguous in memory.
+
+
+# Future Work and Thoughts
+
+**Optimization**: It is possible for us to make optimization to the algorithm by avoiding thread divergence, banking, ensure memory coalescing, etc. However, these optimizations are not the focus of this project. Instead, we focus on the algorithmic aspect of the problem. Nevertheless, it is possible to make these optimizations in the future.
+
+**Generic Stochastic Model**: The model we set up here is very generic. It simplifies simulation of quantum circuits into simulating states transforming through a series of operations in a pre-defined space (in our case, the Hilbert space). As a result, it might be possible to extend the idea to a generic stochastic process, which has wide applicatiosn in many fields such as finance, physics, biology, engineering, etc. Depending on model the stochastic process, we can design a data structure to represent the state and a data structure to represent the operators. Then, we can use the same idea to simulate the stochastic process. This is a very interesting idea to explore in the future.
+
+**Master-Slave Scheme**: Another interesting thing to implement a master-slave model for distributed systems. Right now, we are assuming we know the number of non-deterministic operators for a given bached task. In reality, circuits of different configurations need to be executed. The master of would be in charge of batching and assigning tasks with the same number of non-deterministic operators to the same slave. The slave would then execute the task and return the result to the master. The master would then assign the next task to the slave.
 
 
 # References
